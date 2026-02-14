@@ -1,0 +1,171 @@
+{
+  "realm": "arquisoft",
+  "enabled": true,
+  "displayName": "Arquisoft - UCO",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>Arquisoft - UCO</span></div>",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "roles": {
+    "realm": [
+      {
+        "name": "ESTUDIANTE",
+        "description": "Usuario estudiante que desarrolla su proyecto de grado"
+      },
+      {
+        "name": "ASESOR",
+        "description": "Docente que guía y supervisa proyectos de grado"
+      },
+      {
+        "name": "ASESOR_FICHA",
+        "description": "Responsable de evaluación y seguimiento de fichas de perfil"
+      },
+      {
+        "name": "COORDINADOR",
+        "description": "Administrador del programa académico"
+      },
+      {
+        "name": "JURADO",
+        "description": "Evaluador final de proyectos de grado"
+      },
+      {
+        "name": "BIBLIOTECARIO",
+        "description": "Encargado de custodia y consulta de PG finalizados"
+      },
+      {
+        "name": "REP_COMITE_CURRICULO",
+        "description": "Representante del comité de currículo"
+      },
+      {
+        "name": "ADMINISTRADOR",
+        "description": "Gestor del sistema y configuraciones"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "arquisoft-frontend",
+      "name": "Arquisoft Frontend",
+      "description": "Aplicación SPA de Arquisoft",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:4200/*",
+        "https://arquisoft.uco.edu.co/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:4200",
+        "https://arquisoft.uco.edu.co"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "email"
+      ]
+    },
+    {
+      "clientId": "arquisoft-backend",
+      "name": "Arquisoft Backend",
+      "description": "API Backend de Arquisoft",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "email"
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "role_list",
+    "profile",
+    "email",
+    "roles",
+    "web-origins"
+  ],
+  "users": [
+    {
+      "username": "admin@uco.edu.co",
+      "email": "admin@uco.edu.co",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "Sistema",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "ADMINISTRADOR"
+      ]
+    },
+    {
+      "username": "coordinador@uco.edu.co",
+      "email": "coordinador@uco.edu.co",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Coordinador",
+      "lastName": "Programa",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "coord123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "COORDINADOR"
+      ]
+    }
+  ],
+  "identityProviders": [],
+  "components": {
+    "org.keycloak.keys.KeyProvider": [
+      {
+        "name": "rsa-generated",
+        "providerId": "rsa-generated",
+        "config": {
+          "priority": ["100"]
+        }
+      },
+      {
+        "name": "hmac-generated",
+        "providerId": "hmac-generated",
+        "config": {
+          "priority": ["100"],
+          "algorithm": ["HS256"]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,85 @@
+# =============================================
+# Traefik Static Configuration - Production
+# =============================================
+
+# API & Dashboard
+api:
+  dashboard: true
+  insecure: false
+
+# Entrypoints
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: letsencrypt
+  metrics:
+    address: ":8082"
+
+# Providers
+providers:
+  docker:
+    exposedByDefault: false
+    network: arquisoft-network
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+# Let's Encrypt
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: brayan.sepulveda4302@soyuco.edu.co
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+
+# Logging
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json
+  filePath: /var/log/traefik/access.log
+  bufferingSize: 100
+
+# Ping for healthcheck
+ping:
+  entryPoint: websecure
+
+# Metrics
+metrics:
+  prometheus:
+    entryPoint: metrics
+
+# TLS Options
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+      sniStrict: true
+    
+    modern:
+      minVersion: VersionTLS13
+
+# Servidores de transporte (para backends internos)
+serversTransport:
+  insecureSkipVerify: false
+  maxIdleConnsPerHost: 100

@@ -1,0 +1,60 @@
+# ==============================================================================
+# Arquisoft - Docker Compose Auth Services
+# ==============================================================================
+# Servicios de autenticación: Keycloak
+# Integración con Azure AD de la UCO via SAML/OIDC
+#
+# Uso: docker-compose -f docker-compose.yaml -f docker-compose.auth.yaml up -d
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # Keycloak - Identity Provider (SSO, OAuth 2.0, OIDC)
+  # ============================================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0
+    container_name: arquisoft-keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      # Admin credentials
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      
+      # Database connection (usa PostgreSQL del core)
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-arquisoft}
+      KC_DB_USERNAME: ${POSTGRES_USER:-arquisoft}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-arquisoft_dev_123}
+      KC_DB_SCHEMA: keycloak
+      
+      # Features
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+      
+      # Hostname (para desarrollo)
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+    volumes:
+      - ./configs/keycloak/realm-arquisoft.json:/opt/keycloak/data/import/realm-arquisoft.json:ro
+    networks:
+      - arquisoft-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e \"GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n\" >&3;cat <&3 | grep -q '\"status\": \"UP\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+          cpus: '1'
+        reservations:
+          memory: 512M
+          cpus: '0.5'

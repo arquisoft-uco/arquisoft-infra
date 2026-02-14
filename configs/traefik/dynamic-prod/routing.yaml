@@ -1,0 +1,235 @@
+# =============================================
+# Traefik Dynamic Configuration - Production
+# =============================================
+# Routers, Services, Middlewares con SSL
+# =============================================
+
+http:
+  # ============================================
+  # ROUTERS (con SSL Let's Encrypt)
+  # ============================================
+  routers:
+    # API Backend
+    arquisoft-api:
+      rule: "Host(`api.unyai.duckdns.org`) || (Host(`unyai.duckdns.org`) && PathPrefix(`/api`))"
+      entryPoints:
+        - websecure
+      service: arquisoft-backend
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - rate-limit
+        - security-headers
+        - cors
+
+    # Frontend SPA
+    arquisoft-frontend:
+      rule: "Host(`unyai.duckdns.org`)"
+      entryPoints:
+        - websecure
+      service: arquisoft-frontend
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - security-headers
+        - compress
+      priority: 1
+
+    # Keycloak (Autenticación)
+    keycloak:
+      rule: "Host(`auth.unyai.duckdns.org`)"
+      entryPoints:
+        - websecure
+      service: keycloak
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - keycloak-headers
+
+    # Grafana (Observabilidad - acceso restringido)
+    grafana:
+      rule: "Host(`grafana.unyai.duckdns.org`)"
+      entryPoints:
+        - websecure
+      service: grafana
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - security-headers
+        - ip-whitelist
+
+    # MinIO Console (acceso restringido)
+    minio-console:
+      rule: "Host(`storage.unyai.duckdns.org`)"
+      entryPoints:
+        - websecure
+      service: minio-console
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - security-headers
+        - auth-basic
+        - ip-whitelist
+
+    # MinIO S3 API
+    minio-api:
+      rule: "Host(`s3.unyai.duckdns.org`)"
+      entryPoints:
+        - websecure
+      service: minio-api
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - security-headers
+
+  # ============================================
+  # SERVICES
+  # ============================================
+  services:
+    arquisoft-backend:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:8080"
+        healthCheck:
+          path: /actuator/health
+          interval: "15s"
+          timeout: "5s"
+          scheme: http
+
+    arquisoft-frontend:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:3000"
+
+    keycloak:
+      loadBalancer:
+        servers:
+          - url: "http://keycloak:8080"
+        passHostHeader: true
+
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://grafana:3000"
+
+    minio-console:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9001"
+
+    minio-api:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9000"
+
+  # ============================================
+  # MIDDLEWARES
+  # ============================================
+  middlewares:
+    # Rate limiting (100 req/s con burst de 50)
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s
+
+    # Headers de seguridad
+    security-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000  # 1 año
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+
+    # CORS para API
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        accessControlAllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Requested-With
+          - Accept
+        accessControlAllowOriginList:
+          - "https://unyai.duckdns.org"
+        accessControlMaxAge: 86400
+        addVaryHeader: true
+
+    # Compresión
+    compress:
+      compress:
+        excludedContentTypes:
+          - text/event-stream
+
+    # IP Whitelist (redes UCO + localhost)
+    ip-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+          # Agregar rangos IP de UCO
+          # - "200.x.x.0/24"
+
+    # Basic Auth para paneles admin
+    # Usuario: admin, Password: admin123 (CAMBIAR EN PRODUCCIÓN)
+    # Generar hash: htpasswd -nb admin newpassword
+    auth-basic:
+      basicAuth:
+        users:
+          - "admin:$apr1$ruca84Hq$mbjdMZBAG.KWn7vfN/SNK/"
+        removeHeader: true
+
+    # Retry en caso de fallo
+    retry:
+      retry:
+        attempts: 3
+
+    # Headers específicos para Keycloak (sin frameDeny)
+    keycloak-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+
+# ============================================
+# TCP ROUTERS (PostgreSQL externo opcional)
+# ============================================
+tcp:
+  routers:
+    postgres-external:
+      entryPoints:
+        - postgres
+      rule: "HostSNI(`*`)"
+      service: postgres
+      tls:
+        passthrough: true
+
+  services:
+    postgres:
+      loadBalancer:
+        servers:
+          - address: "postgres:5432"

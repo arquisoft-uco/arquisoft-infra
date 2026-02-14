@@ -1,0 +1,125 @@
+# ==============================================================================
+# Arquisoft - Docker Compose Core Services
+# ==============================================================================
+# Servicios fundamentales: PostgreSQL, RabbitMQ, MinIO
+# Estos servicios son requeridos para que la aplicación funcione
+#
+# Uso: docker-compose -f docker-compose.yaml -f docker-compose.core.yaml up -d
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # PostgreSQL - Base de datos transaccional
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: arquisoft-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-arquisoft}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arquisoft_dev_123}
+      POSTGRES_DB: ${POSTGRES_DB:-arquisoft}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./configs/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-arquisoft} -d ${POSTGRES_DB:-arquisoft}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.5'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # ============================================================================
+  # RabbitMQ - Message Queue para eventos asíncronos
+  # ============================================================================
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: arquisoft-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-arquisoft}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-arquisoft_dev_123}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-arquisoft}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./configs/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./configs/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+          cpus: '0.5'
+        reservations:
+          memory: 200M
+          cpus: '0.25'
+
+  # ============================================================================
+  # MinIO - Object Storage (S3-compatible) para artefactos
+  # ============================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: arquisoft-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-arquisoft}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-arquisoft_dev_123}
+    volumes:
+      - minio-data:/data
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+          cpus: '0.5'
+        reservations:
+          memory: 200M
+          cpus: '0.25'
+
+  # ============================================================================
+  # MinIO Init - Crear buckets iniciales
+  # ============================================================================
+  minio-init:
+    image: minio/mc:latest
+    container_name: arquisoft-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set arquisoft http://minio:9000 ${MINIO_ROOT_USER:-arquisoft} ${MINIO_ROOT_PASSWORD:-arquisoft_dev_123};
+      mc mb arquisoft/artefactos --ignore-existing;
+      mc mb arquisoft/avatars --ignore-existing;
+      mc mb arquisoft/backups --ignore-existing;
+      mc anonymous set download arquisoft/avatars;
+      echo 'Buckets creados exitosamente';
+      exit 0;
+      "
+    networks:
+      - arquisoft-network

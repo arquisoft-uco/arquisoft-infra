@@ -1,0 +1,35 @@
+# ==============================================================================
+# .gitignore — arquisoft-infra (Infraestructura Docker Compose)
+# ==============================================================================
+
+# Environment variables (secrets)
+.env
+.env.prod
+.env.local
+
+# Traefik ACME certificates
+acme.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker volumes (local)
+data/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak

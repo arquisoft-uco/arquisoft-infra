@@ -1,0 +1,51 @@
+# Grafana Datasources Provisioning
+# =================================
+# Configuración automática de fuentes de datos
+
+apiVersion: 1
+
+datasources:
+  # Prometheus - Métricas
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Prometheus
+      prometheusVersion: "2.45.0"
+
+  # Loki - Logs
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: "traceId=(\\w+)"
+          url: "$${__value.raw}"
+          datasourceUid: tempo
+        - name: RequestID
+          matcherRegex: "requestId=(\\w+)"
+
+  # PostgreSQL - Para consultas directas (opcional)
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    user: arquisoft
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD}
+    jsonData:
+      database: arquisoft
+      sslmode: disable
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    editable: false

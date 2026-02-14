@@ -1,0 +1,193 @@
+# ==============================================================================
+# Arquisoft - Docker Compose Production Overrides
+# ==============================================================================
+# Configuraciones específicas para producción
+# - Sin puertos expuestos directamente (solo via Traefik)
+# - Recursos optimizados
+# - Logging estructurado
+# - Restart policies estrictas
+#
+# Uso: docker-compose -f docker-compose.yaml ... -f docker-compose.prod.yaml up -d
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # PostgreSQL - Producción
+  # ============================================================================
+  postgres:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2'
+        reservations:
+          memory: 768M
+          cpus: '1'
+
+  # ============================================================================
+  # RabbitMQ - Producción
+  # ============================================================================
+  rabbitmq:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+          cpus: '0.75'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # ============================================================================
+  # MinIO - Producción
+  # ============================================================================
+  minio:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # ============================================================================
+  # Keycloak - Producción
+  # ============================================================================
+  keycloak:
+    restart: always
+    command: start --import-realm
+    environment:
+      # Usar hostname-url para forzar HTTPS
+      KC_HOSTNAME_URL: https://auth.${DOMAIN:-unyai.duckdns.org}
+      KC_HOSTNAME_ADMIN_URL: https://auth.${DOMAIN:-unyai.duckdns.org}
+      KC_HOSTNAME_STRICT: true
+      KC_HOSTNAME_STRICT_HTTPS: true
+      KC_HTTP_ENABLED: true
+      KC_PROXY_HEADERS: xforwarded
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.5'
+        reservations:
+          memory: 768M
+          cpus: '0.75'
+
+  # ============================================================================
+  # Prometheus - Producción
+  # ============================================================================
+  prometheus:
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+          cpus: '0.5'
+        reservations:
+          memory: 150M
+          cpus: '0.15'
+
+  # ============================================================================
+  # Loki - Producción
+  # ============================================================================
+  loki:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+          cpus: '0.5'
+        reservations:
+          memory: 150M
+          cpus: '0.15'
+
+  # ============================================================================
+  # Grafana - Producción
+  # ============================================================================
+  grafana:
+    restart: always
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: false
+      GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: false
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.15'
+
+  # ============================================================================
+  # Traefik - Producción
+  # ============================================================================
+  traefik:
+    restart: always
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=arquisoft-network"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/certs/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--log.level=WARN"
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+      - "--metrics.prometheus=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
