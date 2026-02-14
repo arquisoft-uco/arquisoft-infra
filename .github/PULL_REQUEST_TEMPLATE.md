@@ -13,6 +13,7 @@
 - [ ] refactor: Refactorización sin cambio funcional
 - [ ] docs: Cambios en documentación
 - [ ] chore: Tareas de mantenimiento
+- [ ] ci: Cambios en CI/CD
 
 ## Checklist de Revisión
 
