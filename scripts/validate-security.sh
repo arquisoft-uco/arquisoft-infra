@@ -149,8 +149,8 @@ echo ""
 echo -e "${BLUE}━━━ 4. Configuración HTTPS ━━━${NC}"
 
 # Verificar si existe configuración de certificados
-if [[ -f "$PROJECT_ROOT/configs/traefik/dynamic.yaml" ]]; then
-    if grep -q "tls\|certResolver\|letsencrypt" "$PROJECT_ROOT/configs/traefik/dynamic.yaml" 2>/dev/null; then
+if [[ -f "$PROJECT_ROOT/configs/traefik/dynamic/dynamic.yaml" ]]; then
+    if grep -q "tls\|certResolver\|letsencrypt" "$PROJECT_ROOT/configs/traefik/dynamic/dynamic.yaml" 2>/dev/null; then
         log_success "Configuración TLS encontrada en Traefik"
     else
         log_info "Sin configuración TLS explícita (normal para desarrollo)"
@@ -194,8 +194,8 @@ if [[ $INSECURE_FILES -eq 0 ]]; then
 fi
 
 # Verificar que no hay credenciales inline en Traefik dynamic.yaml
-if [[ -f "configs/traefik/dynamic.yaml" ]]; then
-    if grep -q "users:" "configs/traefik/dynamic.yaml" 2>/dev/null && grep -q '\$apr1\$' "configs/traefik/dynamic.yaml" 2>/dev/null; then
+if [[ -f "configs/traefik/dynamic/dynamic.yaml" ]]; then
+    if grep -q "users:" "configs/traefik/dynamic/dynamic.yaml" 2>/dev/null && grep -q '\$apr1\$' "configs/traefik/dynamic/dynamic.yaml" 2>/dev/null; then
         log_error "dynamic.yaml contiene credenciales BasicAuth inline"
     else
         log_success "dynamic.yaml usa usersFile (credenciales externas)"

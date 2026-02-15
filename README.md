@@ -73,6 +73,8 @@ docker-compose -f docker-compose.yaml \
 - API: `https://api.arquisoft.uco.edu.co`
 - Auth: `https://auth.arquisoft.uco.edu.co`
 - Grafana: `https://grafana.arquisoft.uco.edu.co`
+- RabbitMQ: `https://rabbitmq.arquisoft.uco.edu.co` (BasicAuth)
+- MinIO Console: `https://storage.arquisoft.uco.edu.co` (BasicAuth)
 
 ## Servicios y Puertos
 

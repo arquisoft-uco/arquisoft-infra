@@ -125,6 +125,7 @@ Agregar a `/etc/hosts` (Linux/Mac) o `C:\Windows\System32\drivers\etc\hosts` (Wi
 127.0.0.1 <DOMAIN>
 127.0.0.1 auth.<DOMAIN>
 127.0.0.1 grafana.<DOMAIN>
+127.0.0.1 rabbitmq.<DOMAIN>
 127.0.0.1 storage.<DOMAIN>
 127.0.0.1 traefik.<DOMAIN>
 ```
@@ -132,10 +133,12 @@ Agregar a `/etc/hosts` (Linux/Mac) o `C:\Windows\System32\drivers\etc\hosts` (Wi
 > En servidores con DNS público (ej. DuckDNS), no es necesario editar `/etc/hosts`.
 
 Luego acceder a:
-- `http://<DOMAIN>` — Aplicación
-- `http://auth.<DOMAIN>` — Keycloak
-- `http://grafana.<DOMAIN>` — Grafana
-- `http://traefik.<DOMAIN>` — Traefik Dashboard
+- `https://<DOMAIN>` — Aplicación
+- `https://auth.<DOMAIN>/admin/` — Keycloak
+- `https://grafana.<DOMAIN>/` — Grafana
+- `https://rabbitmq.<DOMAIN>/` — RabbitMQ Management (BasicAuth)
+- `https://storage.<DOMAIN>/` — MinIO Console (BasicAuth)
+- `https://traefik.<DOMAIN>/` — Traefik Dashboard
 
 ## Configuración de Servicios
 
