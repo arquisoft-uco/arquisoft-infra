@@ -65,8 +65,9 @@ echo -e "${BLUE}Generating config from templates (DOMAIN=$DOMAIN)...${NC}"
 if command -v envsubst &> /dev/null; then
     # Traefik dev dynamic config
     if [ -f "configs/traefik/dynamic.yaml.template" ]; then
-        envsubst '${DOMAIN}' < "configs/traefik/dynamic.yaml.template" > "configs/traefik/dynamic.yaml"
-        echo -e "${GREEN}✓ configs/traefik/dynamic.yaml generado${NC}"
+        mkdir -p "configs/traefik/dynamic"
+        envsubst '${DOMAIN}' < "configs/traefik/dynamic.yaml.template" > "configs/traefik/dynamic/dynamic.yaml"
+        echo -e "${GREEN}✓ configs/traefik/dynamic/dynamic.yaml generado${NC}"
     fi
     # Traefik prod dynamic config
     if [ -f "configs/traefik/dynamic-prod/routing.yaml.template" ]; then
@@ -91,7 +92,8 @@ if command -v envsubst &> /dev/null; then
 else
     echo -e "${YELLOW}⚠ envsubst no encontrado. Usando sed como fallback...${NC}"
     if [ -f "configs/traefik/dynamic.yaml.template" ]; then
-        sed "s/\${DOMAIN}/$DOMAIN/g" "configs/traefik/dynamic.yaml.template" > "configs/traefik/dynamic.yaml"
+        mkdir -p "configs/traefik/dynamic"
+        sed "s/\${DOMAIN}/$DOMAIN/g" "configs/traefik/dynamic.yaml.template" > "configs/traefik/dynamic/dynamic.yaml"
     fi
     if [ -f "configs/traefik/dynamic-prod/routing.yaml.template" ]; then
         sed "s/\${DOMAIN}/$DOMAIN/g" "configs/traefik/dynamic-prod/routing.yaml.template" > "configs/traefik/dynamic-prod/routing.yaml"
