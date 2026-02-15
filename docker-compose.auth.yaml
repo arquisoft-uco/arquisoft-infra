@@ -33,6 +33,7 @@ services:
       KC_HOSTNAME_STRICT: false
       KC_HOSTNAME_STRICT_HTTPS: false
       KC_HTTP_ENABLED: true
+      KC_PROXY_HEADERS: xforwarded
     volumes:
       - ./configs/keycloak/realm-arquisoft.json:/opt/keycloak/data/import/realm-arquisoft.json:ro
     networks:
