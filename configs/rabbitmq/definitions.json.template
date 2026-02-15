@@ -1,5 +1,12 @@
 {
-  "rabbit_version": "3.12.0",
+  "rabbit_version": "3.13.0",
+  "users": [
+    {
+      "name": "${RABBITMQ_USER}",
+      "password": "${RABBITMQ_PASSWORD}",
+      "tags": ["administrator"]
+    }
+  ],
   "vhosts": [
     {
       "name": "arquisoft"

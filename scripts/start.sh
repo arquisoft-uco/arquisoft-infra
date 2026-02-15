@@ -80,7 +80,7 @@ if command -v envsubst &> /dev/null; then
     fi
     # RabbitMQ definitions (user from .env)
     if [ -f "configs/rabbitmq/definitions.json.template" ]; then
-        envsubst '${RABBITMQ_USER}' < "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
+        envsubst '${RABBITMQ_USER} ${RABBITMQ_PASSWORD}' < "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
         echo -e "${GREEN}✓ configs/rabbitmq/definitions.json generado${NC}"
     fi
     # Keycloak realm (admin seed user from .env)
@@ -100,7 +100,9 @@ else
         sed "s/\${ACME_EMAIL}/$ACME_EMAIL/g" "configs/traefik/traefik-prod.yaml.template" > "configs/traefik/traefik-prod.yaml"
     fi
     if [ -f "configs/rabbitmq/definitions.json.template" ]; then
-        sed "s/\${RABBITMQ_USER}/$RABBITMQ_USER/g" "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
+        sed -e "s/\${RABBITMQ_USER}/$RABBITMQ_USER/g" \
+            -e "s/\${RABBITMQ_PASSWORD}/$RABBITMQ_PASSWORD/g" \
+            "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
     fi
     if [ -f "configs/keycloak/realm-arquisoft.json.template" ]; then
         sed -e "s/\${KC_REALM_ADMIN_EMAIL}/$KC_REALM_ADMIN_EMAIL/g" \
