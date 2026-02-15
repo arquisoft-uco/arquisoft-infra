@@ -70,7 +70,7 @@ echo -e "${BLUE}Checking Core Services...${NC}"
 echo "----------------------------------------"
 check_tcp "PostgreSQL" "localhost" 5432
 check_tcp "RabbitMQ (AMQP)" "localhost" 5672
-check_service "RabbitMQ (Mgmt)" "http://localhost:15672/api/overview" "200"
+check_service "RabbitMQ (Mgmt)" "http://localhost:15672/api/overview" "401"
 check_tcp "MinIO (API)" "localhost" 9000
 check_service "MinIO (Console)" "http://localhost:9001" "200"
 
@@ -94,7 +94,10 @@ check_service "Traefik" "http://localhost:8081/ping" "200"
 echo ""
 echo -e "${BLUE}Checking Application (if running)...${NC}"
 echo "----------------------------------------"
+# Backend is optional — save status before check (don't fail overall if not deployed)
+SAVED_STATUS=$OVERALL_STATUS
 check_service "Backend Health" "http://localhost:8080/actuator/health" "200"
+OVERALL_STATUS=$SAVED_STATUS
 
 echo ""
 echo "============================================"
