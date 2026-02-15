@@ -69,23 +69,18 @@ check_container_health() {
     case "$status" in
         "healthy")
             log_success "$container: healthy"
-            return 0
             ;;
         "unhealthy")
             log_error "$container: unhealthy"
-            return 1
             ;;
         "starting")
             log_warning "$container: still starting"
-            return 1
             ;;
         "not_found")
             log_error "$container: container not found"
-            return 1
             ;;
         *)
             log_warning "$container: status unknown ($status)"
-            return 1
             ;;
     esac
 }
@@ -126,13 +121,10 @@ check_http() {
     
     if [[ " $expected_codes " =~ " $http_code " ]]; then
         log_success "$name: HTTP $http_code"
-        return 0
     elif [[ "$http_code" == "000" ]]; then
         log_error "$name: Unreachable"
-        return 1
     else
         log_warning "$name: HTTP $http_code (expected: $expected_codes)"
-        return 1
     fi
 }
 

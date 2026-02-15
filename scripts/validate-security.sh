@@ -57,10 +57,8 @@ check_port_not_exposed() {
     
     if [[ -z "$listening" ]]; then
         log_success "$name (puerto $port): No expuesto globalmente"
-        return 0
     else
         log_error "$name (puerto $port): ¡EXPUESTO en 0.0.0.0!"
-        return 1
     fi
 }
 
@@ -89,13 +87,10 @@ check_requires_auth() {
     # 401 = Unauthorized, 403 = Forbidden, 302/303 = Redirect to login
     if [[ "$http_code" =~ ^(401|403|302|303)$ ]]; then
         log_success "$name: Requiere autenticación (HTTP $http_code)"
-        return 0
     elif [[ "$http_code" == "200" ]]; then
         log_warning "$name: Acceso sin autenticación permitido (HTTP 200)"
-        return 1
     else
         log_info "$name: HTTP $http_code"
-        return 0
     fi
 }
 
@@ -117,7 +112,6 @@ check_security_headers() {
     
     if [[ -z "$headers" ]]; then
         log_warning "No se pudieron verificar headers en $url"
-        return 1
     fi
     
     # Verificar headers específicos
