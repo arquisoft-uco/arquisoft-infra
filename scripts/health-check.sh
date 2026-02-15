@@ -35,7 +35,7 @@ check_service() {
     
     printf "%-20s" "$name:"
     
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "$url" 2>/dev/null || echo "000")
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "$url" 2>/dev/null) || HTTP_CODE="000"
     
     if [ "$HTTP_CODE" = "$expected" ] || [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
         echo -e "${GREEN}✓ Healthy (HTTP $HTTP_CODE)${NC}"
@@ -56,7 +56,9 @@ check_tcp() {
     
     printf "%-20s" "$name:"
     
-    if nc -z -w5 "$host" "$port" 2>/dev/null; then
+    if (echo > /dev/tcp/$host/$port) 2>/dev/null; then
+        echo -e "${GREEN}✓ Listening on port $port${NC}"
+    elif nc -z -w5 "$host" "$port" 2>/dev/null; then
         echo -e "${GREEN}✓ Listening on port $port${NC}"
     else
         echo -e "${RED}✗ Port $port not accessible${NC}"
@@ -75,7 +77,7 @@ check_service "MinIO (Console)" "http://localhost:9001" "200"
 echo ""
 echo -e "${BLUE}Checking Auth Services...${NC}"
 echo "----------------------------------------"
-check_service "Keycloak" "http://localhost:8080/health/ready" "200"
+check_service "Keycloak" "http://localhost:8080/realms/master" "200"
 
 echo ""
 echo -e "${BLUE}Checking Observability Stack...${NC}"
@@ -87,7 +89,7 @@ check_service "Grafana" "http://localhost:3000/api/health" "200"
 echo ""
 echo -e "${BLUE}Checking Proxy...${NC}"
 echo "----------------------------------------"
-check_service "Traefik" "http://localhost:8082/ping" "200"
+check_service "Traefik" "http://localhost:8081/ping" "200"
 
 echo ""
 echo -e "${BLUE}Checking Application (if running)...${NC}"
