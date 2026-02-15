@@ -21,8 +21,8 @@ WARNINGS=0
 # Funciones de logging
 log_info() { echo -e "${BLUE}ℹ ${NC}$1"; }
 log_success() { echo -e "${GREEN}✓ ${NC}$1"; }
-log_warning() { echo -e "${YELLOW}⚠ ${NC}$1"; ((WARNINGS++)); }
-log_error() { echo -e "${RED}✗ ${NC}$1"; ((ERRORS++)); }
+log_warning() { echo -e "${YELLOW}⚠ ${NC}$1"; ((WARNINGS+=1)); }
+log_error() { echo -e "${RED}✗ ${NC}$1"; ((ERRORS+=1)); }
 
 # Resumen final de validación
 print_summary() {

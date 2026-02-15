@@ -190,7 +190,7 @@ for compose_file in docker-compose.core.yaml docker-compose.auth.yaml docker-com
     if [[ -f "$compose_file" ]]; then
         if grep -E '\$\{[A-Z_]+:-[^}]+\}' "$compose_file" | grep -qi "password\|secret" 2>/dev/null; then
             log_error "$compose_file: Contiene credenciales por defecto"
-            ((INSECURE_FILES++))
+            ((INSECURE_FILES+=1))
         fi
     fi
 done

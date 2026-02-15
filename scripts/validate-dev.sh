@@ -180,7 +180,7 @@ if docker exec arquisoft-postgres pg_isready -U "${POSTGRES_USER:-arquisoft}" &>
     for schema in "${EXPECTED_BC_SCHEMAS[@]}"; do
         if echo "$EXISTING_SCHEMAS" | grep -q "^${schema}$"; then
             log_success "Schema BC '$schema' existe"
-            ((BC_COUNT++))
+            ((BC_COUNT+=1))
         else
             log_error "Schema BC '$schema' NO existe"
         fi
