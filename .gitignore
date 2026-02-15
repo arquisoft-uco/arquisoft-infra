@@ -11,7 +11,8 @@
 acme.json
 
 # Traefik config files (generated from .template by start.sh)
-configs/traefik/dynamic.yaml\nconfigs/traefik/dynamic/dynamic.yaml
+configs/traefik/dynamic.yaml
+configs/traefik/dynamic/dynamic.yaml
 configs/traefik/dynamic-prod/routing.yaml
 configs/traefik/traefik-prod.yaml
 
