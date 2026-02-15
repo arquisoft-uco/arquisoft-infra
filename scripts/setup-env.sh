@@ -96,6 +96,7 @@ POSTGRES_PWD=$(generate_password)
 RABBITMQ_PWD=$(generate_password)
 MINIO_PWD=$(generate_password)
 KEYCLOAK_PWD=$(generate_password)
+KC_REALM_ADMIN_PWD=$(generate_password)
 GRAFANA_PWD=$(generate_password)
 
 # Reemplazar placeholders con contraseñas generadas (escapando caracteres especiales)
@@ -103,12 +104,14 @@ POSTGRES_PWD_ESC=$(escape_sed "$POSTGRES_PWD")
 RABBITMQ_PWD_ESC=$(escape_sed "$RABBITMQ_PWD")
 MINIO_PWD_ESC=$(escape_sed "$MINIO_PWD")
 KEYCLOAK_PWD_ESC=$(escape_sed "$KEYCLOAK_PWD")
+KC_REALM_ADMIN_PWD_ESC=$(escape_sed "$KC_REALM_ADMIN_PWD")
 GRAFANA_PWD_ESC=$(escape_sed "$GRAFANA_PWD")
 
 replace_in_env "POSTGRES_PASSWORD=CHANGE_ME_GENERATE_STRONG_PASSWORD" "POSTGRES_PASSWORD=$POSTGRES_PWD_ESC"
 replace_in_env "RABBITMQ_PASSWORD=CHANGE_ME_GENERATE_STRONG_PASSWORD" "RABBITMQ_PASSWORD=$RABBITMQ_PWD_ESC"
 replace_in_env "MINIO_ROOT_PASSWORD=CHANGE_ME_GENERATE_STRONG_PASSWORD" "MINIO_ROOT_PASSWORD=$MINIO_PWD_ESC"
 replace_in_env "KEYCLOAK_ADMIN_PASSWORD=CHANGE_ME_GENERATE_STRONG_PASSWORD" "KEYCLOAK_ADMIN_PASSWORD=$KEYCLOAK_PWD_ESC"
+replace_in_env "KC_REALM_ADMIN_PASSWORD=CHANGE_ME_GENERATE_STRONG_PASSWORD" "KC_REALM_ADMIN_PASSWORD=$KC_REALM_ADMIN_PWD_ESC"
 replace_in_env "GRAFANA_ADMIN_PASSWORD=CHANGE_ME_GENERATE_STRONG_PASSWORD" "GRAFANA_ADMIN_PASSWORD=$GRAFANA_PWD_ESC"
 
 # Establecer permisos restrictivos
@@ -138,12 +141,13 @@ echo -e "${GREEN}║              ✓ Archivo .env generado exitosamente        
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${BLUE}Credenciales generadas (enmascaradas por seguridad):${NC}"
-echo -e "  PostgreSQL:  ${YELLOW}$(mask_credential "$POSTGRES_PWD")${NC}"
-echo -e "  RabbitMQ:    ${YELLOW}$(mask_credential "$RABBITMQ_PWD")${NC}"
-echo -e "  MinIO:       ${YELLOW}$(mask_credential "$MINIO_PWD")${NC}"
-echo -e "  Keycloak:    ${YELLOW}$(mask_credential "$KEYCLOAK_PWD")${NC}"
-echo -e "  Grafana:     ${YELLOW}$(mask_credential "$GRAFANA_PWD")${NC}"
-echo -e "  BasicAuth:   ${YELLOW}$BASICAUTH_USER / $(mask_credential "$BASICAUTH_PWD")${NC} (Traefik admin panels)"
+echo -e "  PostgreSQL:      ${YELLOW}$(mask_credential "$POSTGRES_PWD")${NC}"
+echo -e "  RabbitMQ:        ${YELLOW}$(mask_credential "$RABBITMQ_PWD")${NC}"
+echo -e "  MinIO:           ${YELLOW}$(mask_credential "$MINIO_PWD")${NC}"
+echo -e "  Keycloak Master: ${YELLOW}$(mask_credential "$KEYCLOAK_PWD")${NC}"
+echo -e "  Keycloak Realm:  ${YELLOW}$(mask_credential "$KC_REALM_ADMIN_PWD")${NC} (admin@uco.edu.co - temporal)"
+echo -e "  Grafana:         ${YELLOW}$(mask_credential "$GRAFANA_PWD")${NC}"
+echo -e "  BasicAuth:       ${YELLOW}$BASICAUTH_USER / $(mask_credential "$BASICAUTH_PWD")${NC} (Traefik admin panels)"
 echo ""
 echo -e "${YELLOW}⚠ IMPORTANTE: Las credenciales completas están en el archivo .env${NC}"
 echo -e "${YELLOW}  Consultar: cat .env (archivo con permisos 600)${NC}"

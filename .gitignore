@@ -15,6 +15,9 @@ configs/traefik/dynamic.yaml
 configs/traefik/dynamic-prod/routing.yaml
 configs/traefik/traefik-prod.yaml
 
+# Keycloak realm (generated from .template by start.sh)
+configs/keycloak/realm-arquisoft.json
+
 # RabbitMQ definitions (generated from .template by start.sh)
 configs/rabbitmq/definitions.json
 

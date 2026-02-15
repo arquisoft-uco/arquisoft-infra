@@ -83,6 +83,11 @@ if command -v envsubst &> /dev/null; then
         envsubst '${RABBITMQ_USER}' < "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
         echo -e "${GREEN}✓ configs/rabbitmq/definitions.json generado${NC}"
     fi
+    # Keycloak realm (admin seed user from .env)
+    if [ -f "configs/keycloak/realm-arquisoft.json.template" ]; then
+        envsubst '${KC_REALM_ADMIN_EMAIL} ${KC_REALM_ADMIN_FIRST_NAME} ${KC_REALM_ADMIN_LAST_NAME} ${KC_REALM_ADMIN_PASSWORD}' < "configs/keycloak/realm-arquisoft.json.template" > "configs/keycloak/realm-arquisoft.json"
+        echo -e "${GREEN}✓ configs/keycloak/realm-arquisoft.json generado${NC}"
+    fi
 else
     echo -e "${YELLOW}⚠ envsubst no encontrado. Usando sed como fallback...${NC}"
     if [ -f "configs/traefik/dynamic.yaml.template" ]; then
@@ -96,6 +101,13 @@ else
     fi
     if [ -f "configs/rabbitmq/definitions.json.template" ]; then
         sed "s/\${RABBITMQ_USER}/$RABBITMQ_USER/g" "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
+    fi
+    if [ -f "configs/keycloak/realm-arquisoft.json.template" ]; then
+        sed -e "s/\${KC_REALM_ADMIN_EMAIL}/$KC_REALM_ADMIN_EMAIL/g" \
+            -e "s/\${KC_REALM_ADMIN_FIRST_NAME}/$KC_REALM_ADMIN_FIRST_NAME/g" \
+            -e "s/\${KC_REALM_ADMIN_LAST_NAME}/$KC_REALM_ADMIN_LAST_NAME/g" \
+            -e "s/\${KC_REALM_ADMIN_PASSWORD}/$KC_REALM_ADMIN_PASSWORD/g" \
+            "configs/keycloak/realm-arquisoft.json.template" > "configs/keycloak/realm-arquisoft.json"
     fi
 fi
 echo ""

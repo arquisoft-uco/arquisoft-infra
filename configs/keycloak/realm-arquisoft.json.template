@@ -111,39 +111,21 @@
   ],
   "users": [
     {
-      "username": "admin@uco.edu.co",
-      "email": "admin@uco.edu.co",
+      "username": "${KC_REALM_ADMIN_EMAIL}",
+      "email": "${KC_REALM_ADMIN_EMAIL}",
       "emailVerified": true,
       "enabled": true,
-      "firstName": "Admin",
-      "lastName": "Sistema",
+      "firstName": "${KC_REALM_ADMIN_FIRST_NAME}",
+      "lastName": "${KC_REALM_ADMIN_LAST_NAME}",
       "credentials": [
         {
           "type": "password",
-          "value": "admin123",
+          "value": "${KC_REALM_ADMIN_PASSWORD}",
           "temporary": true
         }
       ],
       "realmRoles": [
         "ADMINISTRADOR"
-      ]
-    },
-    {
-      "username": "coordinador@uco.edu.co",
-      "email": "coordinador@uco.edu.co",
-      "emailVerified": true,
-      "enabled": true,
-      "firstName": "Coordinador",
-      "lastName": "Programa",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "coord123",
-          "temporary": true
-        }
-      ],
-      "realmRoles": [
-        "COORDINADOR"
       ]
     }
   ],
