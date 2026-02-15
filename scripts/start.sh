@@ -136,9 +136,11 @@ esac
 echo -e "${YELLOW}Compose files:${NC} $COMPOSE_FILES"
 echo ""
 
-# Pull latest images
+# Pull latest images (non-blocking: images are public, pull may fail with credential helper issues)
 echo -e "${BLUE}Pulling latest images...${NC}"
-docker compose $COMPOSE_FILES pull
+if ! docker compose $COMPOSE_FILES pull 2>&1; then
+    echo -e "${YELLOW}⚠ Pull falló (posible problema de credential helper). Continuando con imágenes locales/cache...${NC}"
+fi
 
 # Start services
 echo -e "${BLUE}Starting services...${NC}"
