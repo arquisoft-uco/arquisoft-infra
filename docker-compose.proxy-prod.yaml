@@ -21,7 +21,7 @@ services:
   # Traefik - Reverse Proxy con SSL Automático
   # ============================================================================
   traefik:
-    image: traefik:v2.10
+    image: traefik:v2.11
     container_name: arquisoft-traefik
     restart: unless-stopped
     command:
@@ -57,7 +57,7 @@ services:
       # ========================================
       # Let's Encrypt (ACME)
       # ========================================
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@uco.edu.co}"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL requerido para Let's Encrypt}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
@@ -123,15 +123,15 @@ services:
     labels:
       # Dashboard accesible solo via HTTPS con autenticación
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN:-arquisoft.uco.edu.co}`)"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN:?DOMAIN requerido}`)"
       - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
       - "traefik.http.routers.traefik-dashboard.tls=true"
       - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik-dashboard.service=api@internal"
       - "traefik.http.routers.traefik-dashboard.middlewares=auth-dashboard"
-      # Basic Auth: admin:admin123 (cambiar en producción!)
-      # Generar con: htpasswd -nb admin password
-      - "traefik.http.middlewares.auth-dashboard.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:-admin:$$apr1$$ruca84Hq$$mbjdMZBAG.KWn7vfN/SNK/}"
+      # Basic Auth: usar credenciales generadas por setup-env.sh
+      # Generar manualmente: htpasswd -nb admin password
+      - "traefik.http.middlewares.auth-dashboard.basicauth.usersfile=/etc/traefik/certs/.htpasswd"
       
     deploy:
       resources:

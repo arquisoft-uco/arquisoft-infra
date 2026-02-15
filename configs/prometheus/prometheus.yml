@@ -39,13 +39,14 @@ scrape_configs:
     scrape_interval: 10s
     scrape_timeout: 5s
 
-  # PostgreSQL Exporter
-  - job_name: 'postgresql'
-    static_configs:
-      - targets: ['postgres-exporter:9187']
-        labels:
-          service: 'postgresql'
-          database: 'arquisoft'
+  # PostgreSQL Exporter (DESHABILITADO - servicio no implementado)
+  # Descomentar cuando se agregue postgres-exporter al docker-compose
+  # - job_name: 'postgresql'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+  #       labels:
+  #         service: 'postgresql'
+  #         database: 'arquisoft'
 
   # RabbitMQ
   - job_name: 'rabbitmq'

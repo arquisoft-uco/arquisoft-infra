@@ -12,6 +12,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Configuration
@@ -74,14 +75,14 @@ check_service "MinIO (Console)" "http://localhost:9001" "200"
 echo ""
 echo -e "${BLUE}Checking Auth Services...${NC}"
 echo "----------------------------------------"
-check_service "Keycloak" "http://localhost:8180/health/ready" "200"
+check_service "Keycloak" "http://localhost:8080/health/ready" "200"
 
 echo ""
 echo -e "${BLUE}Checking Observability Stack...${NC}"
 echo "----------------------------------------"
 check_service "Prometheus" "http://localhost:9090/-/healthy" "200"
 check_service "Loki" "http://localhost:3100/ready" "200"
-check_service "Grafana" "http://localhost:3001/api/health" "200"
+check_service "Grafana" "http://localhost:3000/api/health" "200"
 
 echo ""
 echo -e "${BLUE}Checking Proxy...${NC}"

@@ -10,6 +10,17 @@
 # Traefik ACME certificates
 acme.json
 
+# Traefik config files (generated from .template by start.sh)
+configs/traefik/dynamic.yaml
+configs/traefik/dynamic-prod/routing.yaml
+configs/traefik/traefik-prod.yaml
+
+# RabbitMQ definitions (generated from .template by start.sh)
+configs/rabbitmq/definitions.json
+
+# Basic Auth credentials (generated with htpasswd)
+configs/traefik/certs/.htpasswd
+
 # Logs
 *.log
 logs/

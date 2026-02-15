@@ -7,7 +7,7 @@
   ],
   "permissions": [
     {
-      "user": "arquisoft",
+      "user": "${RABBITMQ_USER}",
       "vhost": "arquisoft",
       "configure": ".*",
       "write": ".*",

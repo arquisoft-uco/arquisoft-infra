@@ -37,18 +37,68 @@ echo ""
 
 # Check if .env exists
 if [ ! -f .env ]; then
-    echo -e "${YELLOW}⚠ .env file not found. Creating from .env.example...${NC}"
+    echo -e "${YELLOW}⚠ .env file not found.${NC}"
     if [ -f .env.example ]; then
-        cp .env.example .env
-        echo -e "${GREEN}✓ .env created. Please review and update values.${NC}"
+        echo -e "${RED}✗ Ejecutar primero: bash scripts/setup-env.sh${NC}"
+        echo -e "${YELLOW}  O copiar manualmente: cp .env.example .env && editar valores${NC}"
     else
         echo -e "${RED}✗ .env.example not found. Cannot continue.${NC}"
-        exit 1
     fi
+    exit 1
 fi
 
-# Source environment variables
-source .env
+# Load environment variables safely (avoid arbitrary code execution)
+set -a
+eval "$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' .env | sed 's/#.*//')"
+set +a
+
+# Validate DOMAIN is set
+if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "CHANGE_ME" ]; then
+    echo -e "${RED}✗ Variable DOMAIN no configurada en .env${NC}"
+    echo -e "${YELLOW}  Desarrollo: DOMAIN=arquisoft.localhost${NC}"
+    echo -e "${YELLOW}  Producción: DOMAIN=tu-dominio.com${NC}"
+    exit 1
+fi
+
+# Generate config files from templates using envsubst
+echo -e "${BLUE}Generating config from templates (DOMAIN=$DOMAIN)...${NC}"
+if command -v envsubst &> /dev/null; then
+    # Traefik dev dynamic config
+    if [ -f "configs/traefik/dynamic.yaml.template" ]; then
+        envsubst '${DOMAIN}' < "configs/traefik/dynamic.yaml.template" > "configs/traefik/dynamic.yaml"
+        echo -e "${GREEN}✓ configs/traefik/dynamic.yaml generado${NC}"
+    fi
+    # Traefik prod dynamic config
+    if [ -f "configs/traefik/dynamic-prod/routing.yaml.template" ]; then
+        envsubst '${DOMAIN}' < "configs/traefik/dynamic-prod/routing.yaml.template" > "configs/traefik/dynamic-prod/routing.yaml"
+        echo -e "${GREEN}✓ configs/traefik/dynamic-prod/routing.yaml generado${NC}"
+    fi
+    # Traefik prod static config (ACME email)
+    if [ -f "configs/traefik/traefik-prod.yaml.template" ]; then
+        envsubst '${ACME_EMAIL}' < "configs/traefik/traefik-prod.yaml.template" > "configs/traefik/traefik-prod.yaml"
+        echo -e "${GREEN}✓ configs/traefik/traefik-prod.yaml generado${NC}"
+    fi
+    # RabbitMQ definitions (user from .env)
+    if [ -f "configs/rabbitmq/definitions.json.template" ]; then
+        envsubst '${RABBITMQ_USER}' < "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
+        echo -e "${GREEN}✓ configs/rabbitmq/definitions.json generado${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠ envsubst no encontrado. Usando sed como fallback...${NC}"
+    if [ -f "configs/traefik/dynamic.yaml.template" ]; then
+        sed "s/\${DOMAIN}/$DOMAIN/g" "configs/traefik/dynamic.yaml.template" > "configs/traefik/dynamic.yaml"
+    fi
+    if [ -f "configs/traefik/dynamic-prod/routing.yaml.template" ]; then
+        sed "s/\${DOMAIN}/$DOMAIN/g" "configs/traefik/dynamic-prod/routing.yaml.template" > "configs/traefik/dynamic-prod/routing.yaml"
+    fi
+    if [ -f "configs/traefik/traefik-prod.yaml.template" ]; then
+        sed "s/\${ACME_EMAIL}/$ACME_EMAIL/g" "configs/traefik/traefik-prod.yaml.template" > "configs/traefik/traefik-prod.yaml"
+    fi
+    if [ -f "configs/rabbitmq/definitions.json.template" ]; then
+        sed "s/\${RABBITMQ_USER}/$RABBITMQ_USER/g" "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
+    fi
+fi
+echo ""
 
 # Build compose command based on profile
 COMPOSE_FILES="-f docker-compose.yaml"
@@ -114,23 +164,23 @@ echo ""
 
 if [ "$ENVIRONMENT" = "prod" ]; then
     echo -e "🔒 ${GREEN}Production URLs (HTTPS):${NC}"
-    echo -e "  ${YELLOW}App:${NC}            https://${DOMAIN:-arquisoft.uco.edu.co}"
-    echo -e "  ${YELLOW}API:${NC}            https://api.${DOMAIN:-arquisoft.uco.edu.co}"
-    echo -e "  ${YELLOW}Auth:${NC}           https://auth.${DOMAIN:-arquisoft.uco.edu.co}"
-    echo -e "  ${YELLOW}Grafana:${NC}        https://grafana.${DOMAIN:-arquisoft.uco.edu.co}"
-    echo -e "  ${YELLOW}Dashboard:${NC}      https://traefik.${DOMAIN:-arquisoft.uco.edu.co}"
+    echo -e "  ${YELLOW}App:${NC}            https://${DOMAIN}"
+    echo -e "  ${YELLOW}API:${NC}            https://api.${DOMAIN}"
+    echo -e "  ${YELLOW}Auth:${NC}           https://auth.${DOMAIN}"
+    echo -e "  ${YELLOW}Grafana:${NC}        https://grafana.${DOMAIN}"
+    echo -e "  ${YELLOW}Dashboard:${NC}      https://traefik.${DOMAIN}"
 else
     echo -e "Access URLs (Development):"
     echo -e "  ${YELLOW}PostgreSQL:${NC}     localhost:5432"
-    echo -e "  ${YELLOW}RabbitMQ:${NC}       http://localhost:15672 (admin/admin)"
-    echo -e "  ${YELLOW}MinIO Console:${NC}  http://localhost:9001 (minioadmin/minioadmin)"
-    echo -e "  ${YELLOW}Keycloak:${NC}       http://localhost:8180/admin (admin/admin)"
-    echo -e "  ${YELLOW}Grafana:${NC}        http://localhost:3001 (admin/admin)"
+    echo -e "  ${YELLOW}RabbitMQ:${NC}       http://localhost:15672 (ver credenciales en .env)"
+    echo -e "  ${YELLOW}MinIO Console:${NC}  http://localhost:9001 (ver credenciales en .env)"
+    echo -e "  ${YELLOW}Keycloak:${NC}       http://localhost:8080/admin (ver credenciales en .env)"
+    echo -e "  ${YELLOW}Grafana:${NC}        http://localhost:3000 (ver credenciales en .env)"
     echo -e "  ${YELLOW}Prometheus:${NC}     http://localhost:9090"
     echo ""
-    echo -e "With Traefik proxy:"
-    echo -e "  ${YELLOW}App:${NC}            http://arquisoft.localhost"
-    echo -e "  ${YELLOW}Auth:${NC}           http://auth.arquisoft.localhost"
-    echo -e "  ${YELLOW}Grafana:${NC}        http://grafana.arquisoft.localhost"
+    echo -e "With Traefik proxy (DOMAIN=$DOMAIN):"
+    echo -e "  ${YELLOW}App:${NC}            http://${DOMAIN}"
+    echo -e "  ${YELLOW}Auth:${NC}           http://auth.${DOMAIN}"
+    echo -e "  ${YELLOW}Grafana:${NC}        http://grafana.${DOMAIN}"
 fi
 echo ""

@@ -1,0 +1,9 @@
+# ==============================================================================
+# Prometheus Alert Rules — Arquisoft
+# ==============================================================================
+# Reglas de alertas para monitoreo de infraestructura.
+# Agregar reglas específicas según necesidad.
+# Ref: https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+# ==============================================================================
+
+groups: []

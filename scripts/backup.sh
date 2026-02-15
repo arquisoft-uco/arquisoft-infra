@@ -27,9 +27,11 @@ BACKUP_DIR="${BACKUP_DIR:-./backups}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 COMPONENT="${1:-all}"
 
-# Source environment
+# Load environment safely
 if [ -f .env ]; then
-    source .env
+    set -a
+    eval "$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' .env | sed 's/#.*//')"
+    set +a
 fi
 
 # Create backup directory

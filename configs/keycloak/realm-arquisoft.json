@@ -13,6 +13,7 @@
   "editUsernameAllowed": false,
   "bruteForceProtected": true,
   "permanentLockout": false,
+  "passwordPolicy": "length(8) and notUsername and specialChars(1) and digits(1) and upperCase(1)",
   "maxFailureWaitSeconds": 900,
   "minimumQuickLoginWaitSeconds": 60,
   "waitIncrementSeconds": 60,
@@ -68,13 +69,11 @@
       "serviceAccountsEnabled": false,
       "redirectUris": [
         "http://localhost:3000/*",
-        "http://localhost:4200/*",
-        "https://arquisoft.uco.edu.co/*"
+        "http://localhost:4200/*"
       ],
       "webOrigins": [
         "http://localhost:3000",
-        "http://localhost:4200",
-        "https://arquisoft.uco.edu.co"
+        "http://localhost:4200"
       ],
       "protocol": "openid-connect",
       "attributes": {
