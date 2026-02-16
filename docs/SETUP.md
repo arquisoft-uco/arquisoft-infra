@@ -108,6 +108,8 @@ Incluye todo:
 
 ### Desarrollo Local
 
+> 🔒 **Seguridad:** Todos los puertos de desarrollo están vinculados a `127.0.0.1` (loopback). Solo son accesibles desde la máquina local. Para acceso remoto, usar Traefik proxy con subdominios HTTPS.
+
 | Servicio | URL | Credenciales |
 |----------|-----|--------------|
 | RabbitMQ | http://localhost:15672 | Ver `RABBITMQ_USER` / `RABBITMQ_PASSWORD` en `.env` |
@@ -266,6 +268,8 @@ bash scripts/validate-dev.sh
 bash scripts/validate-security.sh
 ```
 
+> Los tres scripts deben terminar con exit code 0. `validate-security.sh` debe reportar **0 errores, 0 warnings**.
+
 ### Limpieza de Infraestructura Legacy
 
 Si existe un despliegue anterior que debe limpiarse:
@@ -284,7 +288,7 @@ docker ps -a && docker volume ls && docker network ls
 
 - Usar **Git Bash** o **WSL** para ejecutar los scripts bash
 - Los permisos de archivo (`chmod 600`) no aplican nativamente; Docker gestiona los permisos internamente
-- `netstat` en Windows tiene output diferente; usar Git Bash para compatibilidad con los scripts de validación
+- `validate-security.sh` detecta Windows automáticamente: usa `netstat -an` con filtrado de columna Local Address (evita falsos positivos con Foreign Address `0.0.0.0:0`) y omite verificación de permisos `.env`/`.htpasswd`
 
 ---
 

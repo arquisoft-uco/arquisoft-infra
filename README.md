@@ -80,16 +80,18 @@ docker-compose -f docker-compose.yaml \
 
 | Servicio | Puerto Interno | Puerto Desarrollo | URL |
 |----------|----------------|-------------------|-----|
-| PostgreSQL | 5432 | 5432 | - |
-| RabbitMQ | 5672 | 5672 | - |
-| RabbitMQ Management | 15672 | 15672 | http://localhost:15672 |
-| MinIO API | 9000 | 9000 | http://localhost:9000 |
-| MinIO Console | 9001 | 9001 | http://localhost:9001 |
-| Keycloak | 8080 | 8080 | http://localhost:8080 |
-| Prometheus | 9090 | 9090 | http://localhost:9090 |
-| Grafana | 3000 | 3000 | http://localhost:3000 |
-| Loki | 3100 | 3100 | - |
+| PostgreSQL | 5432 | 127.0.0.1:5432 | - |
+| RabbitMQ | 5672 | 127.0.0.1:5672 | - |
+| RabbitMQ Management | 15672 | 127.0.0.1:15672 | http://localhost:15672 |
+| MinIO API | 9000 | 127.0.0.1:9000 | http://localhost:9000 |
+| MinIO Console | 9001 | 127.0.0.1:9001 | http://localhost:9001 |
+| Keycloak | 8080 | 127.0.0.1:8080 | http://localhost:8080 |
+| Prometheus | 9090 | 127.0.0.1:9090 | http://localhost:9090 |
+| Grafana | 3000 | 127.0.0.1:3000 | http://localhost:3000 |
+| Loki | 3100 | 127.0.0.1:3100 | - |
 | Traefik Dashboard | 8081 | 8081 | http://localhost:8081 |
+
+> 🔒 Todos los puertos de desarrollo (excepto Traefik 80/443) están vinculados a `127.0.0.1` (solo accesibles desde localhost).
 
 ## Credenciales por Defecto (Desarrollo)
 
