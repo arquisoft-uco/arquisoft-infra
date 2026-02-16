@@ -110,6 +110,14 @@ services:
       - '--web.config.file=/etc/prometheus/web.yml'
     volumes:
       - ./configs/prometheus/web.yml:/etc/prometheus/web.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider --user prometheus --password \"$${PROMETHEUS_PASSWORD}\" http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - PROMETHEUS_PASSWORD=${PROMETHEUS_PASSWORD:?PROMETHEUS_PASSWORD requerido}
     logging:
       driver: json-file
       options:

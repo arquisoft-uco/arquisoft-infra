@@ -188,6 +188,19 @@ basic_auth_users:
 EOF
     chmod 600 "$PROMETHEUS_WEB_YML"
     log_success "Prometheus web.yml generado con Basic Auth"
+
+    # Guardar PROMETHEUS_PASSWORD en .env (requerido por healthcheck en prod)
+    if grep -q "^# PROMETHEUS_PASSWORD=" "$ENV_FILE"; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s/^# PROMETHEUS_PASSWORD=.*/PROMETHEUS_PASSWORD=$(escape_sed "$PROMETHEUS_PWD")/" "$ENV_FILE"
+        else
+            sed -i "s/^# PROMETHEUS_PASSWORD=.*/PROMETHEUS_PASSWORD=$(escape_sed "$PROMETHEUS_PWD")/" "$ENV_FILE"
+        fi
+    elif grep -q "^PROMETHEUS_PASSWORD=" "$ENV_FILE"; then
+        replace_in_env "^PROMETHEUS_PASSWORD=.*" "PROMETHEUS_PASSWORD=$(escape_sed "$PROMETHEUS_PWD")"
+    else
+        echo "PROMETHEUS_PASSWORD=$PROMETHEUS_PWD" >> "$ENV_FILE"
+    fi
     echo ""
 
 else
