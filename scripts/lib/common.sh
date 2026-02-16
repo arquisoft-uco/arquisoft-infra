@@ -24,6 +24,12 @@ log_success() { echo -e "${GREEN}✓ ${NC}$1"; }
 log_warning() { echo -e "${YELLOW}⚠ ${NC}$1"; ((WARNINGS+=1)); }
 log_error() { echo -e "${RED}✗ ${NC}$1"; ((ERRORS+=1)); }
 
+# Función para escapar caracteres especiales en valores para sed
+escape_sed() {
+    local str=$1
+    printf '%s\n' "$str" | sed 's/[&/\$]/\\&/g'
+}
+
 # Resumen final de validación
 print_summary() {
     local title="${1:-RESUMEN}"

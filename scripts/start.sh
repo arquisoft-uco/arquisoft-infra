@@ -25,6 +25,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$INFRA_DIR"
 
+# Cargar funciones compartidas
+if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+    source "$SCRIPT_DIR/lib/common.sh"
+fi
+
 ENVIRONMENT="${1:-dev}"
 PROFILE="${2:-all}"
 
@@ -91,26 +96,35 @@ if command -v envsubst &> /dev/null; then
     fi
 else
     echo -e "${YELLOW}⚠ envsubst no encontrado. Usando sed como fallback...${NC}"
+    # Escapar variables para prevenir inyección en sed (PEN-005)
+    DOMAIN_ESC=$(escape_sed "$DOMAIN")
+    ACME_EMAIL_ESC=$(escape_sed "$ACME_EMAIL")
+    RABBITMQ_USER_ESC=$(escape_sed "$RABBITMQ_USER")
+    RABBITMQ_PASSWORD_ESC=$(escape_sed "$RABBITMQ_PASSWORD")
+    KC_REALM_ADMIN_EMAIL_ESC=$(escape_sed "$KC_REALM_ADMIN_EMAIL")
+    KC_REALM_ADMIN_FIRST_NAME_ESC=$(escape_sed "$KC_REALM_ADMIN_FIRST_NAME")
+    KC_REALM_ADMIN_LAST_NAME_ESC=$(escape_sed "$KC_REALM_ADMIN_LAST_NAME")
+    KC_REALM_ADMIN_PASSWORD_ESC=$(escape_sed "$KC_REALM_ADMIN_PASSWORD")
     if [ -f "configs/traefik/dynamic.yaml.template" ]; then
         mkdir -p "configs/traefik/dynamic"
-        sed "s/\${DOMAIN}/$DOMAIN/g" "configs/traefik/dynamic.yaml.template" > "configs/traefik/dynamic/dynamic.yaml"
+        sed "s/\${DOMAIN}/$DOMAIN_ESC/g" "configs/traefik/dynamic.yaml.template" > "configs/traefik/dynamic/dynamic.yaml"
     fi
     if [ -f "configs/traefik/dynamic-prod/routing.yaml.template" ]; then
-        sed "s/\${DOMAIN}/$DOMAIN/g" "configs/traefik/dynamic-prod/routing.yaml.template" > "configs/traefik/dynamic-prod/routing.yaml"
+        sed "s/\${DOMAIN}/$DOMAIN_ESC/g" "configs/traefik/dynamic-prod/routing.yaml.template" > "configs/traefik/dynamic-prod/routing.yaml"
     fi
     if [ -f "configs/traefik/traefik-prod.yaml.template" ]; then
-        sed "s/\${ACME_EMAIL}/$ACME_EMAIL/g" "configs/traefik/traefik-prod.yaml.template" > "configs/traefik/traefik-prod.yaml"
+        sed "s/\${ACME_EMAIL}/$ACME_EMAIL_ESC/g" "configs/traefik/traefik-prod.yaml.template" > "configs/traefik/traefik-prod.yaml"
     fi
     if [ -f "configs/rabbitmq/definitions.json.template" ]; then
-        sed -e "s/\${RABBITMQ_USER}/$RABBITMQ_USER/g" \
-            -e "s/\${RABBITMQ_PASSWORD}/$RABBITMQ_PASSWORD/g" \
+        sed -e "s/\${RABBITMQ_USER}/$RABBITMQ_USER_ESC/g" \
+            -e "s/\${RABBITMQ_PASSWORD}/$RABBITMQ_PASSWORD_ESC/g" \
             "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
     fi
     if [ -f "configs/keycloak/realm-arquisoft.json.template" ]; then
-        sed -e "s/\${KC_REALM_ADMIN_EMAIL}/$KC_REALM_ADMIN_EMAIL/g" \
-            -e "s/\${KC_REALM_ADMIN_FIRST_NAME}/$KC_REALM_ADMIN_FIRST_NAME/g" \
-            -e "s/\${KC_REALM_ADMIN_LAST_NAME}/$KC_REALM_ADMIN_LAST_NAME/g" \
-            -e "s/\${KC_REALM_ADMIN_PASSWORD}/$KC_REALM_ADMIN_PASSWORD/g" \
+        sed -e "s/\${KC_REALM_ADMIN_EMAIL}/$KC_REALM_ADMIN_EMAIL_ESC/g" \
+            -e "s/\${KC_REALM_ADMIN_FIRST_NAME}/$KC_REALM_ADMIN_FIRST_NAME_ESC/g" \
+            -e "s/\${KC_REALM_ADMIN_LAST_NAME}/$KC_REALM_ADMIN_LAST_NAME_ESC/g" \
+            -e "s/\${KC_REALM_ADMIN_PASSWORD}/$KC_REALM_ADMIN_PASSWORD_ESC/g" \
             "configs/keycloak/realm-arquisoft.json.template" > "configs/keycloak/realm-arquisoft.json"
     fi
 fi

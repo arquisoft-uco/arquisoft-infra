@@ -61,12 +61,6 @@ mask_credential() {
     fi
 }
 
-# Función para escapar caracteres especiales en contraseñas para sed
-escape_sed() {
-    local str=$1
-    printf '%s\n' "$str" | sed 's/[&/\$]/\\&/g'
-}
-
 # Función para reemplazar placeholders en .env (compatible macOS y Linux)
 replace_in_env() {
     local pattern=$1
