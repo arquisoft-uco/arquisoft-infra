@@ -169,6 +169,7 @@ services:
     command:
       - "--api.dashboard=true"
       - "--api.insecure=false"
+      - "--ping=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=arquisoft-network"
@@ -179,7 +180,7 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL requerido para produccion - configurar en .env}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/certs/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--log.level=WARN"
       - "--accesslog=true"
