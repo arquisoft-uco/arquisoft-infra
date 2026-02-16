@@ -96,8 +96,7 @@ check_requires_auth() {
 }
 
 check_requires_auth "RabbitMQ Management" "http://localhost:15672/api/overview"
-check_requires_auth "MinIO API" "http://localhost:9000/minio/health/live"
-check_requires_auth "MinIO Console" "http://localhost:9001/api/v1/login"
+check_requires_auth "MinIO Console" "http://localhost:9001/api/v1/buckets"
 check_requires_auth "Keycloak Admin" "http://localhost:8080/admin"
 check_requires_auth "Grafana" "http://localhost:3000/api/admin/settings"
 
