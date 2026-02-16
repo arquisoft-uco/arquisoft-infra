@@ -30,11 +30,22 @@ cd arquisoft-infra
 
 ```bash
 # Generar archivo .env con credenciales seguras (recomendado)
-bash scripts/setup-env.sh
+bash scripts/setup-env.sh dev   # Desarrollo local (DOMAIN=arquisoft.localhost)
+bash scripts/setup-env.sh prod  # Producción (solicita DOMAIN y ACME_EMAIL)
 
 # O copiar manualmente y editar
 cp .env.example .env
 nano .env  # Reemplazar CHANGE_ME_GENERATE_STRONG_PASSWORD
+```
+
+El parámetro `dev|prod` determina el modo de configuración:
+- **`dev`** (por defecto): Usa `DOMAIN=arquisoft.localhost`, credenciales de desarrollo.
+- **`prod`**: Solicita dominio real y `ACME_EMAIL` para Let's Encrypt. Genera `configs/prometheus/web.yml` con Basic Auth bcrypt y `.htpasswd` para consolas admin.
+
+Para uso no interactivo en producción:
+
+```bash
+echo 's' | DOMAIN=mi-dominio.com ACME_EMAIL=admin@mi-dominio.com bash scripts/setup-env.sh prod
 ```
 
 > ⚠️ **IMPORTANTE**: Nunca versionar el archivo `.env` con credenciales reales.
@@ -353,10 +364,18 @@ nslookup auth.DOMAIN
 ```bash
 cd arquisoft-infra
 
-# Generar .env con credenciales seguras
-# El script detecta dominio no-localhost y solicita ACME_EMAIL automáticamente
-bash scripts/setup-env.sh
+# Generar .env con credenciales seguras en modo producción
+# Solicita DOMAIN y ACME_EMAIL interactivamente
+bash scripts/setup-env.sh prod
+
+# O de forma no interactiva (CI/CD, scripts remotos)
+echo 's' | DOMAIN=mi-dominio.com ACME_EMAIL=admin@mi-dominio.com bash scripts/setup-env.sh prod
 ```
+
+El modo `prod` genera además:
+- `configs/traefik/certs/.htpasswd` — Credenciales BasicAuth para consolas admin
+- `configs/prometheus/web.yml` — Basic Auth bcrypt para endpoints admin de Prometheus
+- `PROMETHEUS_PASSWORD` en `.env` — Usado por healthcheck del contenedor
 
 #### 3. Verificar Configuración
 

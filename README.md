@@ -50,7 +50,10 @@ docker-compose -f docker-compose.yaml -f docker-compose.core.yaml logs -f
 ### Producción
 
 ```bash
-# Levantar con SSL automático (Let's Encrypt)
+# 1. Generar credenciales de producción (solicita DOMAIN y ACME_EMAIL)
+./scripts/setup-env.sh prod
+
+# 2. Levantar con SSL automático (Let's Encrypt)
 ./scripts/start.sh prod
 
 # O manualmente:
@@ -66,7 +69,7 @@ docker-compose -f docker-compose.yaml \
 **Requisitos producción:**
 - Dominio configurado apuntando al servidor (ej: `arquisoft.uco.edu.co`)
 - Puertos 80 y 443 abiertos
-- Configurar `DOMAIN` y `ACME_EMAIL` en `.env`
+- Ejecutar `./scripts/setup-env.sh prod` (configura `DOMAIN`, `ACME_EMAIL`, `.htpasswd`, `web.yml`)
 
 **URLs producción (HTTPS automático):**
 - App: `https://arquisoft.uco.edu.co`
