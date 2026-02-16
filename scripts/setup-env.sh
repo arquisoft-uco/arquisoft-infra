@@ -25,16 +25,16 @@ echo ""
 
 # Verificar que existe .env.example
 if [[ ! -f "$ENV_EXAMPLE" ]]; then
-    echo -e "${RED}✗ Error: No se encontró $ENV_EXAMPLE${NC}"
+    log_error "No se encontró $ENV_EXAMPLE"
     exit 1
 fi
 
 # Verificar si ya existe .env
 if [[ -f "$ENV_FILE" ]]; then
-    echo -e "${YELLOW}⚠ Ya existe un archivo .env${NC}"
+    log_warning "Ya existe un archivo .env"
     read -p "¿Deseas sobrescribirlo? (s/N): " overwrite
     if [[ ! "$overwrite" =~ ^[Ss]$ ]]; then
-        echo -e "${GREEN}✓ Operación cancelada. El archivo .env existente se mantiene.${NC}"
+        log_success "Operación cancelada. El archivo .env existente se mantiene."
         exit 0
     fi
     echo ""
@@ -112,6 +112,54 @@ replace_in_env "GRAFANA_ADMIN_PASSWORD=CHANGE_ME_GENERATE_STRONG_PASSWORD" "GRAF
 chmod 600 "$ENV_FILE"
 
 # ==============================================================================
+# Detectar modo producción (DOMAIN no es *.localhost)
+# ==============================================================================
+CONFIGURED_DOMAIN=$(grep -E '^DOMAIN=' "$ENV_FILE" | cut -d'=' -f2)
+
+if [[ "$CONFIGURED_DOMAIN" != *".localhost" ]]; then
+    DEPLOY_MODE="producción"
+    echo -e "${YELLOW}━━━ Modo Producción Detectado (DOMAIN=$CONFIGURED_DOMAIN) ━━━${NC}"
+    echo ""
+
+    # Solicitar ACME_EMAIL para Let's Encrypt
+    echo -e "${BLUE}Let's Encrypt requiere un email para notificaciones de certificados SSL.${NC}"
+    read -p "Ingresa ACME_EMAIL para Let's Encrypt: " ACME_EMAIL_INPUT
+
+    if [[ -z "$ACME_EMAIL_INPUT" ]]; then
+        log_error "ACME_EMAIL es obligatorio para producción."
+        exit 1
+    fi
+
+    # Validar formato email básico
+    if [[ ! "$ACME_EMAIL_INPUT" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+        log_error "ACME_EMAIL no tiene formato de email válido: $ACME_EMAIL_INPUT"
+        exit 1
+    fi
+
+    # Escapar para uso seguro en sed
+    local ACME_ESCAPED
+    ACME_ESCAPED=$(escape_sed "$ACME_EMAIL_INPUT")
+
+    # Descomentar y establecer ACME_EMAIL en .env
+    if grep -q "^# ACME_EMAIL=" "$ENV_FILE"; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s/^# ACME_EMAIL=.*/ACME_EMAIL=$ACME_ESCAPED/" "$ENV_FILE"
+        else
+            sed -i "s/^# ACME_EMAIL=.*/ACME_EMAIL=$ACME_ESCAPED/" "$ENV_FILE"
+        fi
+    elif grep -q "^ACME_EMAIL=" "$ENV_FILE"; then
+        replace_in_env "^ACME_EMAIL=.*" "ACME_EMAIL=$ACME_ESCAPED"
+    else
+        echo "ACME_EMAIL=$ACME_EMAIL_INPUT" >> "$ENV_FILE"
+    fi
+
+    log_success "ACME_EMAIL configurado: $ACME_EMAIL_INPUT"
+    echo ""
+else
+    DEPLOY_MODE="desarrollo"
+fi
+
+# ==============================================================================
 # Generar credenciales BasicAuth para Traefik
 # ==============================================================================
 HTPASSWD_FILE="$PROJECT_ROOT/configs/traefik/certs/.htpasswd"
@@ -143,8 +191,26 @@ echo -e "  Keycloak Realm:  ${YELLOW}$(mask_credential "$KC_REALM_ADMIN_PWD")${N
 echo -e "  Grafana:         ${YELLOW}$(mask_credential "$GRAFANA_PWD")${NC}"
 echo -e "  BasicAuth:       ${YELLOW}$BASICAUTH_USER / $(mask_credential "$BASICAUTH_PWD")${NC} (Traefik admin panels)"
 echo ""
-echo -e "${YELLOW}⚠ IMPORTANTE: Las credenciales completas están en el archivo .env${NC}"
+log_warning "IMPORTANTE: Las credenciales completas están en el archivo .env"
 echo -e "${YELLOW}  Consultar: cat .env (archivo con permisos 600)${NC}"
 echo -e "${YELLOW}  Los archivos .env y .htpasswd tienen permisos restringidos.${NC}"
 echo ""
-echo -e "${GREEN}Próximo paso: ./scripts/start.sh dev${NC}"
+
+# ==============================================================================
+# Resumen de modo de despliegue
+# ==============================================================================
+echo -e "${BLUE}━━━ Modo Detectado ━━━${NC}"
+if [[ "$DEPLOY_MODE" == "producción" ]]; then
+    echo -e "  Modo:       ${YELLOW}PRODUCCIÓN${NC}"
+    echo -e "  Dominio:    ${YELLOW}$CONFIGURED_DOMAIN${NC}"
+    echo -e "  ACME Email: ${YELLOW}$ACME_EMAIL_INPUT${NC}"
+    echo -e "  SSL:        ${GREEN}Let's Encrypt (automático)${NC}"
+    echo ""
+    echo -e "${GREEN}Próximo paso: ./scripts/start.sh prod${NC}"
+else
+    echo -e "  Modo:       ${GREEN}DESARROLLO${NC}"
+    echo -e "  Dominio:    ${GREEN}$CONFIGURED_DOMAIN${NC}"
+    echo -e "  SSL:        ${YELLOW}N/A (desarrollo local)${NC}"
+    echo ""
+    echo -e "${GREEN}Próximo paso: ./scripts/start.sh dev${NC}"
+fi

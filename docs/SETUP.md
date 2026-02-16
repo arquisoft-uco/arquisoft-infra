@@ -230,7 +230,25 @@ spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:8080/real
 
 ## Despliegue Remoto (Servidor de Desarrollo)
 
-### Ambiente de Despliegue\n\n| Parámetro | Valor |\n|-----------|-------|\n| **Sistema Operativo** | Windows 11 Pro |\n| **IP** | `<SERVER_IP>` |\n| **Acceso SSH** | Puerto `<SSH_PORT>`, usuario `<SSH_USER>` |\n| **Puerto HTTPS** | 443 (Traefik como reverse proxy) |\n| **Herramientas** | Docker, Git, Chocolatey |\n\n> ⚠️ Los valores reales de IP, puerto SSH y usuario se deben obtener del administrador del sistema.\n\n### Pasos para Despliegue\n\n#### 1. Conectar al Servidor\n\n```bash\nssh -p <SSH_PORT> <SSH_USER>@<SERVER_IP>\n```
+### Ambiente de Despliegue
+
+| Parámetro | Valor |
+|-----------|-------|
+| **Sistema Operativo** | Windows 11 Pro |
+| **IP** | `<SERVER_IP>` |
+| **Acceso SSH** | Puerto `<SSH_PORT>`, usuario `<SSH_USER>` |
+| **Puerto HTTPS** | 443 (Traefik como reverse proxy) |
+| **Herramientas** | Docker, Git, Chocolatey |
+
+> ⚠️ Los valores reales de IP, puerto SSH y usuario se deben obtener del administrador del sistema.
+
+### Pasos para Despliegue
+
+#### 1. Conectar al Servidor
+
+```bash
+ssh -p <SSH_PORT> <SSH_USER>@<SERVER_IP>
+```
 
 #### 2. Clonar Repositorio (primera vez)
 
@@ -289,6 +307,147 @@ docker ps -a && docker volume ls && docker network ls
 - Usar **Git Bash** o **WSL** para ejecutar los scripts bash
 - Los permisos de archivo (`chmod 600`) no aplican nativamente; Docker gestiona los permisos internamente
 - `validate-security.sh` detecta Windows automáticamente: usa `netstat -an` con filtrado de columna Local Address (evita falsos positivos con Foreign Address `0.0.0.0:0`) y omite verificación de permisos `.env`/`.htpasswd`
+
+---
+
+## Despliegue a Producción
+
+### Checklist Pre-Despliegue
+
+Antes de ejecutar el despliegue a producción, verificar que se cumplen todos los prerrequisitos:
+
+- [ ] **DNS configurado:** Registros A/CNAME para `DOMAIN`, `api.DOMAIN`, `auth.DOMAIN` apuntando a la IP del servidor
+- [ ] **Puertos abiertos:** 80 (HTTP, requerido por Let's Encrypt challenge) y 443 (HTTPS)
+- [ ] **Acceso SSH:** Conectividad al servidor de producción
+- [ ] **Docker instalado:** Docker Engine 24.x+ y Docker Compose v2.20+
+- [ ] **Repositorio clonado:** `arquisoft-infra` en el servidor
+- [ ] **`.env` generado:** Ejecutar `setup-env.sh` con dominio real (no `*.localhost`)
+- [ ] **`ACME_EMAIL` configurado:** Email válido en `.env` para notificaciones Let's Encrypt
+- [ ] **`.htpasswd` generado:** Credenciales BasicAuth para consolas admin (generado por `setup-env.sh`)
+
+### Pasos de Ejecución
+
+#### 1. Configurar DNS
+
+Crear registros DNS apuntando al servidor de producción:
+
+| Registro | Tipo | Valor |
+|----------|------|-------|
+| `DOMAIN` | A | `<IP_SERVIDOR>` |
+| `api.DOMAIN` | CNAME | `DOMAIN` |
+| `auth.DOMAIN` | CNAME | `DOMAIN` |
+| `grafana.DOMAIN` | CNAME | `DOMAIN` |
+
+Verificar propagación DNS:
+
+```bash
+nslookup DOMAIN
+nslookup api.DOMAIN
+nslookup auth.DOMAIN
+```
+
+> ⚠️ La propagación DNS puede tardar entre 5 minutos y 48 horas. Let's Encrypt requiere que el dominio resuelva al servidor **antes** de emitir certificados.
+
+#### 2. Generar Credenciales de Producción
+
+```bash
+cd arquisoft-infra
+
+# Generar .env con credenciales seguras
+# El script detecta dominio no-localhost y solicita ACME_EMAIL automáticamente
+bash scripts/setup-env.sh
+```
+
+#### 3. Verificar Configuración
+
+```bash
+# Verificar que DOMAIN y ACME_EMAIL están correctos
+grep -E '^(DOMAIN|ACME_EMAIL)=' .env
+
+# Verificar que .htpasswd fue generado
+ls -la configs/traefik/certs/.htpasswd
+```
+
+#### 4. Iniciar Infraestructura de Producción
+
+```bash
+bash scripts/start.sh prod
+```
+
+> Esperar ~60 segundos para que Let's Encrypt emita los certificados SSL. Traefik solicita los certificados automáticamente al iniciar.
+
+#### 5. Validar Despliegue
+
+```bash
+# Validación automatizada de producción
+bash scripts/validate-prod.sh
+```
+
+El script verifica: DNS, SSL, HTTPS, redirects, headers de seguridad, recursos y healthchecks.
+
+### Verificación Post-Despliegue
+
+Después de ejecutar `validate-prod.sh`, verificar manualmente:
+
+| Verificación | Comando/URL | Esperado |
+|-------------|-------------|----------|
+| App HTTPS | `https://DOMAIN` | HTTP 200 con certificado válido |
+| API HTTPS | `https://api.DOMAIN` | HTTP 200/302 con certificado válido |
+| Auth HTTPS | `https://auth.DOMAIN` | HTTP 200/302 (Keycloak login) |
+| Redirect HTTP→HTTPS | `curl -I http://DOMAIN` | 301/308 → `https://DOMAIN` |
+| Certificado SSL | Icono candado en navegador | Let's Encrypt (R3/R10) |
+| Recursos | `docker stats --no-stream` | Dentro de limits del compose |
+| Backup | `bash scripts/backup.sh all` | Backup completado sin errores |
+| Health checks | `bash scripts/health-check.sh` | Todos los servicios healthy |
+
+### Troubleshooting SSL / Let's Encrypt
+
+#### Certificado no emitido
+
+```bash
+# Ver logs de Traefik para errores ACME
+docker logs arquisoft-traefik 2>&1 | grep -i "acme\|certificate\|challenge"
+
+# Verificar que el puerto 80 es accesible desde Internet
+curl -I http://DOMAIN  # Debe responder (Traefik escucha)
+```
+
+**Causas comunes:**
+- DNS no propagado (verificar con `nslookup DOMAIN`)
+- Puerto 80 bloqueado por firewall
+- `ACME_EMAIL` vacío o inválido
+- Rate limit excedido (ver abajo)
+
+#### Rate Limits de Let's Encrypt
+
+| Límite | Valor |
+|--------|-------|
+| Certificados por dominio registrado | 50/semana |
+| Duplicados exactos | 5/semana |
+| Solicitudes fallidas | 5/hora |
+
+Para pruebas iniciales, considerar usar el **staging** de Let's Encrypt (certificados no válidos para navegador, pero sin rate limits):
+
+```bash
+# En docker-compose.prod.yaml, agregar temporalmente al command de Traefik:
+# --certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+```
+
+> ⚠️ Remover la línea de staging y reiniciar para obtener certificados reales después de verificar que todo funciona.
+
+#### Renovación de Certificados
+
+Traefik renueva automáticamente los certificados 30 días antes de su expiración. Los certificados Let's Encrypt tienen validez de 90 días.
+
+Verificar estado de certificados:
+
+```bash
+# Fecha de expiración del certificado actual
+echo | openssl s_client -servername DOMAIN -connect DOMAIN:443 2>/dev/null | openssl x509 -noout -enddate
+
+# Verificar archivo acme.json (almacén de certificados de Traefik)
+docker exec arquisoft-traefik ls -la /etc/traefik/certs/acme.json
+```
 
 ---
 
