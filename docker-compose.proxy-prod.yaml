@@ -91,5 +91,3 @@ services:
 volumes:
   traefik-letsencrypt:
     name: arquisoft_traefik-letsencrypt
-  traefik-logs:
-    name: arquisoft_traefik-logs

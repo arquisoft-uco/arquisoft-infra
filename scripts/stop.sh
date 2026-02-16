@@ -2,7 +2,11 @@
 # ============================================
 # Arquisoft Infrastructure - Stop Script
 # ============================================
-# Uso: ./stop.sh [options]
+# Uso: ./stop.sh [environment] [options]
+# Ejemplos:
+#   ./stop.sh              # Detiene modo desarrollo
+#   ./stop.sh dev          # Detiene modo desarrollo
+#   ./stop.sh prod         # Detiene modo producción
 # Opciones:
 #   --volumes    También elimina volúmenes (¡CUIDADO: elimina datos!)
 #   --prune      Limpia imágenes y redes huérfanas
@@ -23,17 +27,19 @@ cd "$SCRIPT_DIR/.."
 
 REMOVE_VOLUMES=false
 PRUNE=false
+ENVIRONMENT="dev"
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
+        prod|dev)
+            ENVIRONMENT="$arg"
+            ;;
         --volumes)
             REMOVE_VOLUMES=true
-            shift
             ;;
         --prune)
             PRUNE=true
-            shift
             ;;
     esac
 done
@@ -41,10 +47,17 @@ done
 echo -e "${BLUE}============================================${NC}"
 echo -e "${BLUE}   Arquisoft Infrastructure Shutdown${NC}"
 echo -e "${BLUE}============================================${NC}"
+echo -e "${YELLOW}Environment:${NC} $ENVIRONMENT"
 echo ""
 
-# Build compose command with all files
-COMPOSE_FILES="-f docker-compose.yaml -f docker-compose.core.yaml -f docker-compose.auth.yaml -f docker-compose.observability.yaml -f docker-compose.proxy.yaml -f docker-compose.dev.yaml"
+# Build compose command based on environment (matching start.sh)
+COMPOSE_FILES="-f docker-compose.yaml -f docker-compose.core.yaml -f docker-compose.auth.yaml -f docker-compose.observability.yaml"
+
+if [ "$ENVIRONMENT" = "prod" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.proxy-prod.yaml -f docker-compose.prod.yaml"
+else
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.proxy.yaml -f docker-compose.dev.yaml"
+fi
 
 # Stop services
 echo -e "${BLUE}Stopping services...${NC}"
