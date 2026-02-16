@@ -12,31 +12,28 @@ services:
   # Keycloak - Identity Provider (SSO, OAuth 2.0, OIDC)
   # ============================================================================
   keycloak:
-    image: quay.io/keycloak/keycloak:22.0
+    image: quay.io/keycloak/keycloak:26.0
     container_name: arquisoft-keycloak
     restart: unless-stopped
     command: start-dev --import-realm
     environment:
-      # Admin credentials
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN requerido - ejecutar scripts/setup-env.sh}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD requerido - ejecutar scripts/setup-env.sh}
       
-      # Database connection (usa PostgreSQL del core)
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-arquisoft}
-      KC_DB_USERNAME: ${POSTGRES_USER:-arquisoft}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-arquisoft_dev_123}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB requerido}
+      KC_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER requerido}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
       KC_DB_SCHEMA: keycloak
       
-      # Features
       KC_FEATURES: token-exchange,admin-fine-grained-authz
       KC_HEALTH_ENABLED: true
       KC_METRICS_ENABLED: true
       
-      # Hostname (para desarrollo)
       KC_HOSTNAME_STRICT: false
       KC_HOSTNAME_STRICT_HTTPS: false
       KC_HTTP_ENABLED: true
+      KC_PROXY_HEADERS: xforwarded
     volumes:
       - ./configs/keycloak/realm-arquisoft.json:/opt/keycloak/data/import/realm-arquisoft.json:ro
     networks:
@@ -45,7 +42,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e \"GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n\" >&3;cat <&3 | grep -q '\"status\": \"UP\"'"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000;echo -e \"GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n\" >&3;cat <&3 | grep -q '\"status\": \"UP\"'"]
       interval: 30s
       timeout: 10s
       retries: 5

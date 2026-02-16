@@ -76,8 +76,8 @@ services:
     command: start --import-realm
     environment:
       # Usar hostname-url para forzar HTTPS
-      KC_HOSTNAME_URL: https://auth.${DOMAIN:-unyai.duckdns.org}
-      KC_HOSTNAME_ADMIN_URL: https://auth.${DOMAIN:-unyai.duckdns.org}
+      KC_HOSTNAME_URL: https://auth.${DOMAIN:?DOMAIN requerido - configurar en .env}
+      KC_HOSTNAME_ADMIN_URL: https://auth.${DOMAIN:?DOMAIN requerido - configurar en .env}
       KC_HOSTNAME_STRICT: true
       KC_HOSTNAME_STRICT_HTTPS: true
       KC_HTTP_ENABLED: true

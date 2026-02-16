@@ -1,6 +1,9 @@
 # Traefik Dynamic Configuration for Arquisoft
 # =============================================
-# Configuración dinámica de rutas y middleware
+# TEMPLATE - NO editar dynamic.yaml directamente
+# Editar dynamic.yaml.template y ejecutar start.sh
+# Variables: ${DOMAIN} se reemplaza con valor de .env
+# =============================================
 
 http:
   # ============================================
@@ -9,10 +12,12 @@ http:
   routers:
     # API Backend
     arquisoft-api:
-      rule: "Host(`arquisoft.localhost`) && PathPrefix(`/api`)"
+      rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
       entryPoints:
         - web
+        - websecure
       service: arquisoft-backend
+      tls: {}
       middlewares:
         - api-stripprefix
         - rate-limit
@@ -20,50 +25,62 @@ http:
 
     # Frontend (cuando esté disponible)
     arquisoft-frontend:
-      rule: "Host(`arquisoft.localhost`)"
+      rule: "Host(`${DOMAIN}`)"
       entryPoints:
         - web
+        - websecure
       service: arquisoft-frontend
+      tls: {}
       middlewares:
         - security-headers
       priority: 1
 
     # Keycloak
     keycloak:
-      rule: "Host(`auth.arquisoft.localhost`)"
+      rule: "Host(`auth.${DOMAIN}`)"
       entryPoints:
         - web
+        - websecure
       service: keycloak
+      tls: {}
 
     # MinIO Console
     minio-console:
-      rule: "Host(`storage.arquisoft.localhost`)"
+      rule: "Host(`storage.${DOMAIN}`)"
       entryPoints:
         - web
+        - websecure
       service: minio-console
+      tls: {}
       middlewares:
         - auth-basic
 
     # MinIO API
     minio-api:
-      rule: "Host(`s3.arquisoft.localhost`)"
+      rule: "Host(`s3.${DOMAIN}`)"
       entryPoints:
         - web
+        - websecure
       service: minio-api
+      tls: {}
 
     # Grafana
     grafana:
-      rule: "Host(`grafana.arquisoft.localhost`)"
+      rule: "Host(`grafana.${DOMAIN}`)"
       entryPoints:
         - web
+        - websecure
       service: grafana
+      tls: {}
 
     # RabbitMQ Management
     rabbitmq:
-      rule: "Host(`rabbitmq.arquisoft.localhost`)"
+      rule: "Host(`rabbitmq.${DOMAIN}`)"
       entryPoints:
         - web
+        - websecure
       service: rabbitmq-management
+      tls: {}
       middlewares:
         - auth-basic
 
@@ -137,11 +154,12 @@ http:
         customResponseHeaders:
           X-Powered-By: ""
 
-    # Basic auth for admin panels (user: admin, pass: admin123)
+    # Basic auth for admin panels
+    # Credenciales en archivo externo (NO versionado)
+    # Generar: htpasswd -c ../certs/.htpasswd admin
     auth-basic:
       basicAuth:
-        users:
-          - "admin:$apr1$ruca84Hq$mbjdMZBAG.KWn7vfN/SNK/"  # admin:admin123
+        usersFile: "/etc/traefik/certs/.htpasswd"
         removeHeader: true
 
     # Compress responses
@@ -162,23 +180,25 @@ http:
           - Authorization
           - X-Requested-With
         accessControlAllowOriginList:
-          - "http://localhost:3000"
-          - "http://localhost:4200"
-          - "http://arquisoft.localhost"
+          - "http://${DOMAIN}"
+          - "https://${DOMAIN}"
         accessControlMaxAge: 100
         addVaryHeader: true
 
-# TCP Routers (para PostgreSQL si se necesita acceso externo)
-tcp:
-  routers:
-    postgres:
-      entryPoints:
-        - postgres
-      rule: "HostSNI(`*`)"
-      service: postgres
-
-  services:
-    postgres:
-      loadBalancer:
-        servers:
-          - address: "postgres:5432"
+# TCP Routers - DESHABILITADO por seguridad
+# PostgreSQL NO debe ser accesible externamente via Traefik
+# Si se requiere acceso remoto, usar SSH tunnel o VPN
+# 
+# tcp:
+#   routers:
+#     postgres:
+#       entryPoints:
+#         - postgres
+#       rule: "HostSNI(`*`)"
+#       service: postgres
+# 
+#   services:
+#     postgres:
+#       loadBalancer:
+#         servers:
+#           - address: "postgres:5432"

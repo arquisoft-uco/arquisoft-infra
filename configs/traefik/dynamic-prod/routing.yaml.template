@@ -1,7 +1,9 @@
 # =============================================
 # Traefik Dynamic Configuration - Production
 # =============================================
-# Routers, Services, Middlewares con SSL
+# TEMPLATE - NO editar routing.yaml directamente
+# Editar routing.yaml.template y ejecutar start.sh
+# Variables: ${DOMAIN} se reemplaza con valor de .env
 # =============================================
 
 http:
@@ -11,7 +13,7 @@ http:
   routers:
     # API Backend
     arquisoft-api:
-      rule: "Host(`api.unyai.duckdns.org`) || (Host(`unyai.duckdns.org`) && PathPrefix(`/api`))"
+      rule: "Host(`api.${DOMAIN}`) || (Host(`${DOMAIN}`) && PathPrefix(`/api`))"
       entryPoints:
         - websecure
       service: arquisoft-backend
@@ -24,7 +26,7 @@ http:
 
     # Frontend SPA
     arquisoft-frontend:
-      rule: "Host(`unyai.duckdns.org`)"
+      rule: "Host(`${DOMAIN}`)"
       entryPoints:
         - websecure
       service: arquisoft-frontend
@@ -37,7 +39,7 @@ http:
 
     # Keycloak (Autenticación)
     keycloak:
-      rule: "Host(`auth.unyai.duckdns.org`)"
+      rule: "Host(`auth.${DOMAIN}`)"
       entryPoints:
         - websecure
       service: keycloak
@@ -48,7 +50,7 @@ http:
 
     # Grafana (Observabilidad - acceso restringido)
     grafana:
-      rule: "Host(`grafana.unyai.duckdns.org`)"
+      rule: "Host(`grafana.${DOMAIN}`)"
       entryPoints:
         - websecure
       service: grafana
@@ -60,7 +62,7 @@ http:
 
     # MinIO Console (acceso restringido)
     minio-console:
-      rule: "Host(`storage.unyai.duckdns.org`)"
+      rule: "Host(`storage.${DOMAIN}`)"
       entryPoints:
         - websecure
       service: minio-console
@@ -73,7 +75,7 @@ http:
 
     # MinIO S3 API
     minio-api:
-      rule: "Host(`s3.unyai.duckdns.org`)"
+      rule: "Host(`s3.${DOMAIN}`)"
       entryPoints:
         - websecure
       service: minio-api
@@ -164,7 +166,7 @@ http:
           - X-Requested-With
           - Accept
         accessControlAllowOriginList:
-          - "https://unyai.duckdns.org"
+          - "https://${DOMAIN}"
         accessControlMaxAge: 86400
         addVaryHeader: true
 
@@ -186,12 +188,11 @@ http:
           # - "200.x.x.0/24"
 
     # Basic Auth para paneles admin
-    # Usuario: admin, Password: admin123 (CAMBIAR EN PRODUCCIÓN)
-    # Generar hash: htpasswd -nb admin newpassword
+    # Credenciales en archivo externo (NO versionado)
+    # Generar: htpasswd -c ../certs/.htpasswd admin
     auth-basic:
       basicAuth:
-        users:
-          - "admin:$apr1$ruca84Hq$mbjdMZBAG.KWn7vfN/SNK/"
+        usersFile: "/etc/traefik/certs/.htpasswd"
         removeHeader: true
 
     # Retry en caso de fallo
@@ -216,20 +217,22 @@ http:
           Server: ""
 
 # ============================================
-# TCP ROUTERS (PostgreSQL externo opcional)
+# TCP ROUTERS - DESHABILITADO por seguridad
+# PostgreSQL NO debe ser accesible externamente via Traefik
+# Si se requiere acceso remoto, usar SSH tunnel o VPN
 # ============================================
-tcp:
-  routers:
-    postgres-external:
-      entryPoints:
-        - postgres
-      rule: "HostSNI(`*`)"
-      service: postgres
-      tls:
-        passthrough: true
-
-  services:
-    postgres:
-      loadBalancer:
-        servers:
-          - address: "postgres:5432"
+# tcp:
+#   routers:
+#     postgres-external:
+#       entryPoints:
+#         - postgres
+#       rule: "HostSNI(`*`)"
+#       service: postgres
+#       tls:
+#         passthrough: true
+#
+#   services:
+#     postgres:
+#       loadBalancer:
+#         servers:
+#           - address: "postgres:5432"

@@ -12,35 +12,22 @@ services:
   # Traefik - Reverse Proxy & Load Balancer
   # ============================================================================
   traefik:
-    image: traefik:v2.10
+    image: traefik:v2.11
     container_name: arquisoft-traefik
     restart: unless-stopped
-    command:
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=arquisoft-network"
-      - "--providers.file.directory=/etc/traefik/dynamic"
-      - "--providers.file.watch=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      - "--log.level=INFO"
-      - "--accesslog=true"
-      - "--metrics.prometheus=true"
     ports:
       - "80:80"
       - "443:443"
       - "8081:8080"  # Dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./configs/traefik/traefik.yaml:/etc/traefik/traefik.yaml:ro
+      - ./configs/traefik/traefik-dev.yaml:/etc/traefik/traefik.yaml:ro
       - ./configs/traefik/dynamic:/etc/traefik/dynamic:ro
       - ./configs/traefik/certs:/etc/traefik/certs:ro
     networks:
       - arquisoft-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 30s
@@ -48,7 +35,7 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN:?DOMAIN requerido}`)"
       - "traefik.http.routers.traefik.service=api@internal"
     deploy:
       resources:

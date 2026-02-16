@@ -12,6 +12,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Configuration
@@ -34,7 +35,7 @@ check_service() {
     
     printf "%-20s" "$name:"
     
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "$url" 2>/dev/null || echo "000")
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "$url" 2>/dev/null) || HTTP_CODE="000"
     
     if [ "$HTTP_CODE" = "$expected" ] || [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
         echo -e "${GREEN}✓ Healthy (HTTP $HTTP_CODE)${NC}"
@@ -55,7 +56,9 @@ check_tcp() {
     
     printf "%-20s" "$name:"
     
-    if nc -z -w5 "$host" "$port" 2>/dev/null; then
+    if (echo > /dev/tcp/$host/$port) 2>/dev/null; then
+        echo -e "${GREEN}✓ Listening on port $port${NC}"
+    elif nc -z -w5 "$host" "$port" 2>/dev/null; then
         echo -e "${GREEN}✓ Listening on port $port${NC}"
     else
         echo -e "${RED}✗ Port $port not accessible${NC}"
@@ -67,31 +70,34 @@ echo -e "${BLUE}Checking Core Services...${NC}"
 echo "----------------------------------------"
 check_tcp "PostgreSQL" "localhost" 5432
 check_tcp "RabbitMQ (AMQP)" "localhost" 5672
-check_service "RabbitMQ (Mgmt)" "http://localhost:15672/api/overview" "200"
+check_service "RabbitMQ (Mgmt)" "http://localhost:15672/api/overview" "401"
 check_tcp "MinIO (API)" "localhost" 9000
 check_service "MinIO (Console)" "http://localhost:9001" "200"
 
 echo ""
 echo -e "${BLUE}Checking Auth Services...${NC}"
 echo "----------------------------------------"
-check_service "Keycloak" "http://localhost:8180/health/ready" "200"
+check_service "Keycloak" "http://localhost:8080/realms/master" "200"
 
 echo ""
 echo -e "${BLUE}Checking Observability Stack...${NC}"
 echo "----------------------------------------"
 check_service "Prometheus" "http://localhost:9090/-/healthy" "200"
 check_service "Loki" "http://localhost:3100/ready" "200"
-check_service "Grafana" "http://localhost:3001/api/health" "200"
+check_service "Grafana" "http://localhost:3000/api/health" "200"
 
 echo ""
 echo -e "${BLUE}Checking Proxy...${NC}"
 echo "----------------------------------------"
-check_service "Traefik" "http://localhost:8082/ping" "200"
+check_service "Traefik" "http://localhost:8081/ping" "200"
 
 echo ""
 echo -e "${BLUE}Checking Application (if running)...${NC}"
 echo "----------------------------------------"
+# Backend is optional — save status before check (don't fail overall if not deployed)
+SAVED_STATUS=$OVERALL_STATUS
 check_service "Backend Health" "http://localhost:8080/actuator/health" "200"
+OVERALL_STATUS=$SAVED_STATUS
 
 echo ""
 echo "============================================"

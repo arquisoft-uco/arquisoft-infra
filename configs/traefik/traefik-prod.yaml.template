@@ -1,6 +1,9 @@
 # =============================================
 # Traefik Static Configuration - Production
 # =============================================
+# TEMPLATE: Este archivo es procesado por envsubst en start.sh
+# Requiere: ACME_EMAIL
+# Genera: configs/traefik/traefik-prod.yaml
 
 # API & Dashboard
 api:
@@ -38,7 +41,7 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: brayan.sepulveda4302@soyuco.edu.co
+      email: ${ACME_EMAIL}
       storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web

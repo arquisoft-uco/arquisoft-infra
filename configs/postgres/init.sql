@@ -11,7 +11,7 @@ CREATE SCHEMA IF NOT EXISTS proyectos_grado;
 CREATE SCHEMA IF NOT EXISTS artefactos;
 CREATE SCHEMA IF NOT EXISTS evaluaciones;
 CREATE SCHEMA IF NOT EXISTS mapa_ruta;
-CREATE SCHEMA IF NOT EXISTS notificaciones;
+CREATE SCHEMA IF NOT EXISTS repositorio_artefactos;
 CREATE SCHEMA IF NOT EXISTS solicitudes;
 CREATE SCHEMA IF NOT EXISTS biblioteca;
 CREATE SCHEMA IF NOT EXISTS entregables;
@@ -63,5 +63,5 @@ $$ LANGUAGE plpgsql;
 DO $$
 BEGIN
     RAISE NOTICE 'Arquisoft database initialized successfully';
-    RAISE NOTICE 'Schemas created: usuarios, fichas_perfil, proyectos_grado, artefactos, evaluaciones, mapa_ruta, notificaciones, solicitudes, biblioteca, entregables';
+    RAISE NOTICE 'Schemas created: usuarios, fichas_perfil, proyectos_grado, artefactos, evaluaciones, mapa_ruta, repositorio_artefactos, solicitudes, biblioteca, entregables';
 END $$;
