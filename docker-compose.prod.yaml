@@ -75,11 +75,10 @@ services:
     restart: always
     command: start --import-realm
     environment:
-      # Usar hostname-url para forzar HTTPS
-      KC_HOSTNAME_URL: https://auth.${DOMAIN:?DOMAIN requerido - configurar en .env}
-      KC_HOSTNAME_ADMIN_URL: https://auth.${DOMAIN:?DOMAIN requerido - configurar en .env}
+      # Keycloak 26.x: KC_HOSTNAME reemplaza KC_HOSTNAME_URL (deprecado)
+      KC_HOSTNAME: https://auth.${DOMAIN:?DOMAIN requerido - configurar en .env}
+      KC_HOSTNAME_ADMIN: https://auth.${DOMAIN:?DOMAIN requerido - configurar en .env}
       KC_HOSTNAME_STRICT: true
-      KC_HOSTNAME_STRICT_HTTPS: true
       KC_HTTP_ENABLED: true
       KC_PROXY_HEADERS: xforwarded
     logging:
