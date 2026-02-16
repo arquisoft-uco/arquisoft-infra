@@ -108,7 +108,8 @@ echo -e "${BLUE}━━━ 3. Headers de Seguridad ━━━${NC}"
 
 check_security_headers() {
     local url=$1
-    local headers=$(curl -s -I --connect-timeout 5 "$url" 2>/dev/null | grep -i "^X-\|^Strict-Transport" || echo "")
+    local extra_args="${2:-}"
+    local headers=$(curl -sk -I --connect-timeout 5 $extra_args "$url" 2>/dev/null | grep -i "^X-\|^Strict-Transport" || echo "")
     
     if [[ -z "$headers" ]]; then
         log_warning "No se pudieron verificar headers en $url"
@@ -134,9 +135,16 @@ check_security_headers() {
     fi
 }
 
-# Solo verificar si Traefik está corriendo
+# Verificar headers via Traefik router (no acceso directo a localhost)
 if docker ps --format '{{.Names}}' | grep -q "arquisoft-traefik"; then
-    check_security_headers "http://localhost"
+    # Cargar DOMAIN desde .env si está disponible
+    DOMAIN=$(grep -E '^DOMAIN=' "$PROJECT_ROOT/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' || echo "")
+    if [[ -n "$DOMAIN" ]]; then
+        # Verificar via Traefik router usando --resolve para evitar hairpin NAT
+        check_security_headers "https://auth.${DOMAIN}" "--resolve auth.${DOMAIN}:443:127.0.0.1"
+    else
+        check_security_headers "http://localhost"
+    fi
 else
     log_info "Traefik no está corriendo. Omitiendo verificación de headers."
 fi
@@ -204,13 +212,17 @@ fi
 
 # Verificar permisos de .env
 if [[ -f ".env" ]]; then
-    PERMS=$(stat -c "%a" ".env" 2>/dev/null || stat -f "%OLp" ".env" 2>/dev/null || echo "unknown")
-    if [[ "$PERMS" == "600" || "$PERMS" == "640" ]]; then
-        log_success ".env tiene permisos restrictivos ($PERMS)"
-    elif [[ "$PERMS" == "unknown" ]]; then
-        log_info "No se pudieron verificar permisos de .env (Windows)"
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]] || command -v cmd.exe &>/dev/null; then
+        log_info "Permisos de .env: verificación omitida en Windows (usar icacls manualmente)"
     else
-        log_warning ".env tiene permisos $PERMS (recomendado: 600)"
+        PERMS=$(stat -c "%a" ".env" 2>/dev/null || stat -f "%OLp" ".env" 2>/dev/null || echo "unknown")
+        if [[ "$PERMS" == "600" || "$PERMS" == "640" ]]; then
+            log_success ".env tiene permisos restrictivos ($PERMS)"
+        elif [[ "$PERMS" == "unknown" ]]; then
+            log_info "No se pudieron verificar permisos de .env"
+        else
+            log_warning ".env tiene permisos $PERMS (recomendado: 600)"
+        fi
     fi
 fi
 
@@ -224,13 +236,17 @@ fi
 # Verificar archivo .htpasswd para BasicAuth
 HTPASSWD_FILE="$PROJECT_ROOT/configs/traefik/certs/.htpasswd"
 if [[ -f "$HTPASSWD_FILE" ]]; then
-    PERMS=$(stat -c "%a" "$HTPASSWD_FILE" 2>/dev/null || stat -f "%OLp" "$HTPASSWD_FILE" 2>/dev/null || echo "unknown")
-    if [[ "$PERMS" == "600" || "$PERMS" == "640" ]]; then
-        log_success ".htpasswd tiene permisos restrictivos ($PERMS)"
-    elif [[ "$PERMS" == "unknown" ]]; then
-        log_info "No se pudieron verificar permisos de .htpasswd (Windows)"
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]] || command -v cmd.exe &>/dev/null; then
+        log_info "Permisos de .htpasswd: verificación omitida en Windows (usar icacls manualmente)"
     else
-        log_warning ".htpasswd tiene permisos $PERMS (recomendado: 600)"
+        PERMS=$(stat -c "%a" "$HTPASSWD_FILE" 2>/dev/null || stat -f "%OLp" "$HTPASSWD_FILE" 2>/dev/null || echo "unknown")
+        if [[ "$PERMS" == "600" || "$PERMS" == "640" ]]; then
+            log_success ".htpasswd tiene permisos restrictivos ($PERMS)"
+        elif [[ "$PERMS" == "unknown" ]]; then
+            log_info "No se pudieron verificar permisos de .htpasswd"
+        else
+            log_warning ".htpasswd tiene permisos $PERMS (recomendado: 600)"
+        fi
     fi
     
     # Verificar que no está en git
