@@ -4,7 +4,13 @@
 # ==============================================================================
 # Genera el archivo .env a partir de .env.example con contraseñas seguras
 #
-# Uso: ./scripts/setup-env.sh
+# Uso:
+#   ./scripts/setup-env.sh              # Modo desarrollo (default)
+#   ./scripts/setup-env.sh dev          # Modo desarrollo explícito
+#   ./scripts/setup-env.sh prod         # Modo producción (pide dominio y ACME_EMAIL)
+#
+# Variables de entorno opcionales (evitan prompts interactivos):
+#   DOMAIN=unyai.duckdns.org ACME_EMAIL=admin@example.com ./scripts/setup-env.sh prod
 # ==============================================================================
 
 set -e
@@ -18,9 +24,19 @@ source "$SCRIPT_DIR/lib/common.sh"
 ENV_EXAMPLE="$PROJECT_ROOT/.env.example"
 ENV_FILE="$PROJECT_ROOT/.env"
 
+# Parsear entorno desde argumento (dev|prod)
+ENVIRONMENT="${1:-dev}"
+if [[ "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then
+    echo -e "Uso: $(basename "$0") [dev|prod]"
+    echo -e "  dev   Modo desarrollo (default) — DOMAIN=arquisoft.localhost"
+    echo -e "  prod  Modo producción — solicita dominio público y ACME_EMAIL"
+    exit 1
+fi
+
 echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║       Arquisoft - Configuración de Variables de Entorno      ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${YELLOW}Entorno:${NC} $ENVIRONMENT"
 echo ""
 
 # Verificar que existe .env.example
@@ -126,18 +142,41 @@ replace_in_env "GRAFANA_ADMIN_PASSWORD=CHANGE_ME_GENERATE_STRONG_PASSWORD" "GRAF
 chmod 600 "$ENV_FILE"
 
 # ==============================================================================
-# Detectar modo producción (DOMAIN no es *.localhost)
+# Configurar dominio según entorno
 # ==============================================================================
-CONFIGURED_DOMAIN=$(grep -E '^DOMAIN=' "$ENV_FILE" | cut -d'=' -f2)
-
-if [[ "$CONFIGURED_DOMAIN" != *".localhost" ]]; then
+if [[ "$ENVIRONMENT" == "prod" ]]; then
     DEPLOY_MODE="producción"
-    echo -e "${YELLOW}━━━ Modo Producción Detectado (DOMAIN=$CONFIGURED_DOMAIN) ━━━${NC}"
+
+    # Determinar dominio de producción
+    if [[ -n "$DOMAIN" && "$DOMAIN" != "arquisoft.localhost" ]]; then
+        PROD_DOMAIN="$DOMAIN"
+    else
+        echo -e "${BLUE}━━━ Configuración de Dominio (Producción) ━━━${NC}"
+        read -p "Ingresa el dominio de producción (ej: unyai.duckdns.org): " PROD_DOMAIN
+        if [[ -z "$PROD_DOMAIN" ]]; then
+            log_error "El dominio es obligatorio en modo producción."
+            exit 1
+        fi
+    fi
+
+    # Escribir dominio en .env
+    DOMAIN_ESC=$(escape_sed "$PROD_DOMAIN")
+    replace_in_env "^DOMAIN=.*" "DOMAIN=$DOMAIN_ESC"
+    log_success "Dominio configurado: $PROD_DOMAIN"
     echo ""
 
-    # Solicitar ACME_EMAIL para Let's Encrypt
-    echo -e "${BLUE}Let's Encrypt requiere un email para notificaciones de certificados SSL.${NC}"
-    read -p "Ingresa ACME_EMAIL para Let's Encrypt: " ACME_EMAIL_INPUT
+    CONFIGURED_DOMAIN="$PROD_DOMAIN"
+    echo -e "${YELLOW}━━━ Modo Producción (DOMAIN=$CONFIGURED_DOMAIN) ━━━${NC}"
+    echo ""
+
+    # Solicitar ACME_EMAIL para Let's Encrypt (permite override via variable de entorno)
+    if [[ -n "$ACME_EMAIL" ]]; then
+        ACME_EMAIL_INPUT="$ACME_EMAIL"
+        log_success "ACME_EMAIL configurado desde variable de entorno: $ACME_EMAIL_INPUT"
+    else
+        echo -e "${BLUE}Let's Encrypt requiere un email para notificaciones de certificados SSL.${NC}"
+        read -p "Ingresa ACME_EMAIL para Let's Encrypt: " ACME_EMAIL_INPUT
+    fi
 
     if [[ -z "$ACME_EMAIL_INPUT" ]]; then
         log_error "ACME_EMAIL es obligatorio para producción."
@@ -207,7 +246,9 @@ EOF
     echo ""
 
 else
+    # Modo desarrollo — mantener DOMAIN=arquisoft.localhost del template
     DEPLOY_MODE="desarrollo"
+    CONFIGURED_DOMAIN=$(grep -E '^DOMAIN=' "$ENV_FILE" | cut -d'=' -f2)
 fi
 
 # ==============================================================================
