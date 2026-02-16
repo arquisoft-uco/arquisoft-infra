@@ -79,6 +79,17 @@ generate_apr1_hash() {
     openssl passwd -apr1 -salt "$salt" "$password"
 }
 
+# Generar hash bcrypt para Prometheus web.yml
+generate_bcrypt_hash() {
+    local password=$1
+    if command -v htpasswd &>/dev/null; then
+        htpasswd -nbBC 10 "" "$password" | tr -d ':\n'
+    else
+        # Usar imagen httpd de Docker como fallback
+        docker run --rm httpd:2.4-alpine htpasswd -nbBC 10 "" "$password" 2>/dev/null | tr -d ':\n'
+    fi
+}
+
 echo -e "${BLUE}Generando archivo .env con credenciales seguras...${NC}"
 echo ""
 
@@ -137,7 +148,6 @@ if [[ "$CONFIGURED_DOMAIN" != *".localhost" ]]; then
     fi
 
     # Escapar para uso seguro en sed
-    local ACME_ESCAPED
     ACME_ESCAPED=$(escape_sed "$ACME_EMAIL_INPUT")
 
     # Descomentar y establecer ACME_EMAIL en .env
@@ -155,6 +165,31 @@ if [[ "$CONFIGURED_DOMAIN" != *".localhost" ]]; then
 
     log_success "ACME_EMAIL configurado: $ACME_EMAIL_INPUT"
     echo ""
+
+    # ------------------------------------------------------------------
+    # Generar Prometheus web.yml con Basic Auth (bcrypt)
+    # ------------------------------------------------------------------
+    PROMETHEUS_WEB_YML="$PROJECT_ROOT/configs/prometheus/web.yml"
+    PROMETHEUS_PWD=$(generate_password)
+
+    echo -e "${BLUE}Generando credenciales Basic Auth para Prometheus (web.yml)...${NC}"
+
+    PROM_BCRYPT_HASH=$(generate_bcrypt_hash "$PROMETHEUS_PWD")
+
+    if [[ -z "$PROM_BCRYPT_HASH" ]]; then
+        log_error "No se pudo generar hash bcrypt para Prometheus. Instala htpasswd o Docker."
+        exit 1
+    fi
+
+    cat > "$PROMETHEUS_WEB_YML" <<EOF
+# Generado automáticamente por setup-env.sh — NO editar manualmente
+basic_auth_users:
+  prometheus: "$PROM_BCRYPT_HASH"
+EOF
+    chmod 600 "$PROMETHEUS_WEB_YML"
+    log_success "Prometheus web.yml generado con Basic Auth"
+    echo ""
+
 else
     DEPLOY_MODE="desarrollo"
 fi
@@ -190,10 +225,13 @@ echo -e "  Keycloak Master: ${YELLOW}$(mask_credential "$KEYCLOAK_PWD")${NC}"
 echo -e "  Keycloak Realm:  ${YELLOW}$(mask_credential "$KC_REALM_ADMIN_PWD")${NC} (admin@uco.edu.co - temporal)"
 echo -e "  Grafana:         ${YELLOW}$(mask_credential "$GRAFANA_PWD")${NC}"
 echo -e "  BasicAuth:       ${YELLOW}$BASICAUTH_USER / $(mask_credential "$BASICAUTH_PWD")${NC} (Traefik admin panels)"
+if [[ "$DEPLOY_MODE" == "producción" ]]; then
+    echo -e "  Prometheus:      ${YELLOW}prometheus / $(mask_credential "$PROMETHEUS_PWD")${NC} (web.yml Basic Auth)"
+fi
 echo ""
 log_warning "IMPORTANTE: Las credenciales completas están en el archivo .env"
 echo -e "${YELLOW}  Consultar: cat .env (archivo con permisos 600)${NC}"
-echo -e "${YELLOW}  Los archivos .env y .htpasswd tienen permisos restringidos.${NC}"
+echo -e "${YELLOW}  Los archivos .env, .htpasswd y web.yml tienen permisos restringidos.${NC}"
 echo ""
 
 # ==============================================================================

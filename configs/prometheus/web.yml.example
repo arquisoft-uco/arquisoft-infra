@@ -1,0 +1,15 @@
+# ==============================================================================
+# Prometheus Web Configuration - Ejemplo
+# ==============================================================================
+# Protege endpoints de administración (/-/reload, /-/quit) con Basic Auth.
+# Referencia: https://prometheus.io/docs/prometheus/latest/configuration/https/
+#
+# Este archivo es generado automáticamente por setup-env.sh en modo producción.
+# NO editar manualmente — se sobrescribirá en cada ejecución de setup-env.sh.
+#
+# Para generar manualmente:
+#   htpasswd -nbBC 10 prometheus "tu-contraseña-segura"
+# ==============================================================================
+
+basic_auth_users:
+  prometheus: "$2y$10$REPLACE_WITH_BCRYPT_HASH"

@@ -103,6 +103,11 @@ if command -v envsubst &> /dev/null; then
     fi
 else
     echo -e "${YELLOW}⚠ envsubst no encontrado. Usando sed como fallback...${NC}"
+    # Validar que escape_sed esté disponible (cargado desde common.sh)
+    if ! command -v escape_sed &>/dev/null; then
+        log_error "common.sh requerido para fallback sed"
+        exit 1
+    fi
     # Escapar variables para prevenir inyección en sed (PEN-005)
     DOMAIN_ESC=$(escape_sed "$DOMAIN")
     ACME_EMAIL_ESC=$(escape_sed "$ACME_EMAIL")

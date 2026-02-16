@@ -38,4 +38,4 @@ volumes:
   
   # Proxy / Logs
   traefik-logs:
-    name: arquisoft_traefik-logs
+    name: arquisoft-traefik-logs
