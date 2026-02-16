@@ -71,7 +71,7 @@ backup_minio() {
     
     # Using docker volume to backup
     docker run --rm \
-        -v arquisoft_minio-data:/data \
+        -v arquisoft-minio-data:/data \
         -v "$(pwd)/$BACKUP_DIR:/backup" \
         alpine tar czf "/backup/minio_${TIMESTAMP}.tar.gz" -C /data .
     
