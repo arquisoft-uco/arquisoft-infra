@@ -96,7 +96,8 @@ check_requires_auth() {
 }
 
 check_requires_auth "RabbitMQ Management" "http://localhost:15672/api/overview"
-check_requires_auth "MinIO Console" "http://localhost:9001"
+check_requires_auth "MinIO API" "http://localhost:9000/minio/health/live"
+check_requires_auth "MinIO Console" "http://localhost:9001/api/v1/login"
 check_requires_auth "Keycloak Admin" "http://localhost:8080/admin"
 check_requires_auth "Grafana" "http://localhost:3000/api/admin/settings"
 
@@ -141,8 +142,9 @@ if docker ps --format '{{.Names}}' | grep -q "arquisoft-traefik"; then
     # Cargar DOMAIN desde .env si está disponible
     DOMAIN=$(grep -E '^DOMAIN=' "$PROJECT_ROOT/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' || echo "")
     if [[ -n "$DOMAIN" ]]; then
-        # Verificar via Traefik router usando --resolve para evitar hairpin NAT
-        check_security_headers "https://auth.${DOMAIN}" "--resolve auth.${DOMAIN}:443:127.0.0.1"
+        # Verificar via router con middleware security-headers (grafana tiene security-headers implícito)
+        # Keycloak NO tiene security-headers (usa iframes), por eso se verifica con grafana
+        check_security_headers "https://grafana.${DOMAIN}" "--resolve grafana.${DOMAIN}:443:127.0.0.1"
     else
         check_security_headers "http://localhost"
     fi
