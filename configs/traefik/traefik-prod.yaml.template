@@ -46,9 +46,9 @@ certificatesResolvers:
       httpChallenge:
         entryPoint: web
 
-# Logging
+# Logging (WARN en producción para reducir ruido)
 log:
-  level: INFO
+  level: WARN
   format: json
 
 accessLog:
@@ -57,8 +57,10 @@ accessLog:
   bufferingSize: 100
 
 # Ping for healthcheck
+# Usar entrypoint HTTP (web) para que traefik healthcheck --ping funcione
+# (websecure requiere TLS + SNI válido, causando 404 con sniStrict: true)
 ping:
-  entryPoint: websecure
+  entryPoint: web
 
 # Metrics
 metrics:

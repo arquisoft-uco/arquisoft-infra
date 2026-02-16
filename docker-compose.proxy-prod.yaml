@@ -38,6 +38,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./configs/traefik/traefik-prod.yaml:/etc/traefik/traefik.yaml:ro
       - ./configs/traefik/dynamic-prod:/etc/traefik/dynamic:ro
+      - ./configs/traefik/certs/.htpasswd:/etc/traefik/certs/.htpasswd:ro
       - traefik-letsencrypt:/letsencrypt
       - traefik-logs:/var/log/traefik
       

@@ -19,6 +19,7 @@ services:
       - "80:80"
       - "443:443"
       - "8081:8080"  # Dashboard
+      - "8082:8082"  # Métricas Prometheus
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./configs/traefik/traefik-dev.yaml:/etc/traefik/traefik.yaml:ro

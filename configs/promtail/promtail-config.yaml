@@ -42,70 +42,7 @@ scrape_configs:
       - output:
           source: log
 
-  # Arquisoft Application Logs
-  - job_name: arquisoft-app
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: arquisoft
-          application: arquisoft-backend
-          __path__: /var/log/arquisoft/*.log
-
-    pipeline_stages:
-      - multiline:
-          firstline: '^\d{4}-\d{2}-\d{2}'
-          max_wait_time: 3s
-      - regex:
-          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\s+(?P<level>\w+)\s+\[(?P<thread>[^\]]+)\]\s+(?P<logger>[^\s]+)\s+-\s+(?P<message>.*)$'
-      - labels:
-          level:
-          logger:
-          thread:
-      - timestamp:
-          source: timestamp
-          format: '2006-01-02 15:04:05.000'
-
-  # PostgreSQL logs
-  - job_name: postgresql
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: postgresql
-          service: database
-          __path__: /var/log/postgresql/*.log
-
-    pipeline_stages:
-      - multiline:
-          firstline: '^\d{4}-\d{2}-\d{2}'
-          max_wait_time: 3s
-      - regex:
-          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \w+)\s+(?P<level>\w+):\s+(?P<message>.*)$'
-      - labels:
-          level:
-
-  # Keycloak logs
-  - job_name: keycloak
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: keycloak
-          service: auth
-          __path__: /var/log/keycloak/*.log
-
-  # RabbitMQ logs
-  - job_name: rabbitmq
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: rabbitmq
-          service: messaging
-          __path__: /var/log/rabbitmq/*.log
-
-  # Traefik access logs
+  # Traefik access logs (montado via volume traefik-logs)
   - job_name: traefik
     static_configs:
       - targets:
@@ -129,6 +66,10 @@ scrape_configs:
           request_host:
           request_method:
           origin_status:
+
+  # NOTA: PostgreSQL, Keycloak, RabbitMQ y arquisoft-backend escriben a stdout,
+  # capturado automáticamente por el job 'containers' via Docker log driver.
+  # No requieren jobs separados ni volume mounts adicionales.
 
 # Relabel configs for service discovery
 # (útil si se integra con Docker Swarm o Kubernetes)

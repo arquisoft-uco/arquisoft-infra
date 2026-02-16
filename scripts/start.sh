@@ -65,6 +65,13 @@ if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "CHANGE_ME" ]; then
     exit 1
 fi
 
+# Validate ACME_EMAIL for production
+if [ "$ENVIRONMENT" = "prod" ] && [ -z "$ACME_EMAIL" ]; then
+    echo -e "${RED}✗ Variable ACME_EMAIL requerida para producción${NC}"
+    echo -e "${YELLOW}  Configurar en .env: ACME_EMAIL=tu-email@dominio.com${NC}"
+    exit 1
+fi
+
 # Generate config files from templates using envsubst
 echo -e "${BLUE}Generating config from templates (DOMAIN=$DOMAIN)...${NC}"
 if command -v envsubst &> /dev/null; then
@@ -89,9 +96,9 @@ if command -v envsubst &> /dev/null; then
         envsubst '${RABBITMQ_USER} ${RABBITMQ_PASSWORD}' < "configs/rabbitmq/definitions.json.template" > "configs/rabbitmq/definitions.json"
         echo -e "${GREEN}✓ configs/rabbitmq/definitions.json generado${NC}"
     fi
-    # Keycloak realm (admin seed user from .env)
+    # Keycloak realm (admin seed user + DOMAIN from .env)
     if [ -f "configs/keycloak/realm-arquisoft.json.template" ]; then
-        envsubst '${KC_REALM_ADMIN_EMAIL} ${KC_REALM_ADMIN_FIRST_NAME} ${KC_REALM_ADMIN_LAST_NAME} ${KC_REALM_ADMIN_PASSWORD}' < "configs/keycloak/realm-arquisoft.json.template" > "configs/keycloak/realm-arquisoft.json"
+        envsubst '${KC_REALM_ADMIN_EMAIL} ${KC_REALM_ADMIN_FIRST_NAME} ${KC_REALM_ADMIN_LAST_NAME} ${KC_REALM_ADMIN_PASSWORD} ${DOMAIN}' < "configs/keycloak/realm-arquisoft.json.template" > "configs/keycloak/realm-arquisoft.json"
         echo -e "${GREEN}✓ configs/keycloak/realm-arquisoft.json generado${NC}"
     fi
 else
@@ -125,6 +132,7 @@ else
             -e "s/\${KC_REALM_ADMIN_FIRST_NAME}/$KC_REALM_ADMIN_FIRST_NAME_ESC/g" \
             -e "s/\${KC_REALM_ADMIN_LAST_NAME}/$KC_REALM_ADMIN_LAST_NAME_ESC/g" \
             -e "s/\${KC_REALM_ADMIN_PASSWORD}/$KC_REALM_ADMIN_PASSWORD_ESC/g" \
+            -e "s/\${DOMAIN}/$DOMAIN_ESC/g" \
             "configs/keycloak/realm-arquisoft.json.template" > "configs/keycloak/realm-arquisoft.json"
     fi
 fi

@@ -14,14 +14,3 @@ providers:
     options:
       path: /etc/grafana/provisioning/dashboards/json
       foldersFromFilesStructure: true
-
-  - name: 'Infrastructure Dashboards'
-    orgId: 1
-    folder: 'Infrastructure'
-    folderUid: 'infrastructure'
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 30
-    options:
-      path: /etc/grafana/provisioning/dashboards/infrastructure
-      foldersFromFilesStructure: false

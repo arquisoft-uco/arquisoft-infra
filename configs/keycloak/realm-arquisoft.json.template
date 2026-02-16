@@ -69,11 +69,13 @@
       "serviceAccountsEnabled": false,
       "redirectUris": [
         "http://localhost:3000/*",
-        "http://localhost:4200/*"
+        "http://localhost:4200/*",
+        "https://${DOMAIN}/*"
       ],
       "webOrigins": [
         "http://localhost:3000",
-        "http://localhost:4200"
+        "http://localhost:4200",
+        "https://${DOMAIN}"
       ],
       "protocol": "openid-connect",
       "attributes": {

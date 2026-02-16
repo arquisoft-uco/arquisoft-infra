@@ -18,6 +18,8 @@ entryPoints:
           scheme: https
   websecure:
     address: ":443"
+  metrics:
+    address: ":8082"
 
 # Providers
 providers:
@@ -37,6 +39,7 @@ accessLog: {}
 # Ping for healthcheck
 ping: {}
 
-# Metrics
+# Metrics (mismo puerto que producción para consistencia con Prometheus)
 metrics:
-  prometheus: {}
+  prometheus:
+    entryPoint: metrics
