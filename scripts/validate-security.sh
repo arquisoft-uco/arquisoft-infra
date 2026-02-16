@@ -48,8 +48,9 @@ check_port_not_exposed() {
     local listening=""
     
     if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]] || command -v cmd.exe &>/dev/null; then
-        # Windows: usar netstat con formato Windows (requiere Git Bash o WSL)
-        listening=$(netstat -an 2>/dev/null | grep "LISTENING" | grep ":$port " | grep "0.0.0.0" || echo "")
+        # Windows: netstat muestra "TCP  LOCAL_ADDR  FOREIGN_ADDR  STATE"
+        # Verificar que 0.0.0.0:PORT está en la dirección LOCAL (no en Foreign que siempre es 0.0.0.0:0)
+        listening=$(netstat -an 2>/dev/null | grep "LISTENING" | grep -E "^\s+TCP\s+0\.0\.0\.0:${port}\s" || echo "")
     else
         # Linux/macOS
         listening=$(netstat -tuln 2>/dev/null | grep ":$port " | grep "0.0.0.0" || ss -tuln 2>/dev/null | grep ":$port " | grep "0.0.0.0" || echo "")
