@@ -136,7 +136,9 @@
         "name": "rsa-generated",
         "providerId": "rsa-generated",
         "config": {
-          "priority": ["100"]
+          "priority": ["100"],
+          "keySize": ["4096"],
+          "algorithm": ["RS256"]
         }
       },
       {
