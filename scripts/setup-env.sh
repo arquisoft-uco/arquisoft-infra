@@ -41,13 +41,16 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 # Función para generar contraseña segura
+# Garantiza: ≥1 mayúscula, ≥1 dígito, ≥1 carácter especial (requerido por política Keycloak)
 generate_password() {
+    local base
     if command -v openssl &> /dev/null; then
-        openssl rand -base64 24 | tr -d '/+=' | head -c 24
+        base=$(openssl rand -base64 24 | tr -d '/+=' | head -c 21)
     else
-        # Fallback para sistemas sin openssl
-        tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 24 | head -n 1
+        base=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 21 | head -n 1)
     fi
+    # Añadir sufijo que garantiza mayúscula + dígito + especial
+    echo "${base}A1!"
 }
 
 # Función para enmascarar credenciales (muestra solo primeros 4 y últimos 4 caracteres)
