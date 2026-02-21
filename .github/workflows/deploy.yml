@@ -8,7 +8,7 @@
 # Prerequisitos:
 #   - Self-hosted runner instalado y corriendo en el servidor
 #   - Docker y Docker Compose disponibles
-#   - .env configurado (scripts/setup-env.sh)
+#   - Secret ENV_FILE configurado con el contenido del .env
 # ==============================================================================
 
 name: Deploy
@@ -63,14 +63,15 @@ jobs:
       - name: Login a GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # ── Verificar .env ──
-      - name: Verificar configuración .env
+      # ── Generar .env desde Secret ──
+      - name: Crear archivo .env
         run: |
-          if [ ! -f .env ]; then
-            echo "❌ .env no encontrado. Ejecutar: bash scripts/setup-env.sh"
+          echo "${{ secrets.ENV_FILE }}" > .env
+          if [ ! -s .env ]; then
+            echo "❌ Secret ENV_FILE vacío o no configurado"
             exit 1
           fi
-          echo "✅ .env encontrado"
+          echo "✅ .env generado desde secret ($(wc -l < .env) líneas)"
 
       # ── Deploy ──
       - name: Deploy servicios
