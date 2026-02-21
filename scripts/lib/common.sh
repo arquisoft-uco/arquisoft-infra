@@ -49,3 +49,106 @@ print_summary() {
         return 1
     fi
 }
+
+# Función para cargar archivo .env de forma segura
+load_env_file() {
+    local env_file="${1:-.env}"
+    if [[ -f "$env_file" ]]; then
+        log_success "Archivo .env existe"
+        if grep -qE '^[A-Za-z_][A-Za-z0-9_]*=' "$env_file"; then
+            # Parser seguro: leer línea por línea, sin eval
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                # Ignorar líneas vacías y comentarios
+                [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+                # Solo procesar líneas con formato KEY=VALUE
+                if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+                    local key="${line%%=*}"
+                    local value="${line#*=}"
+                    export "$key=$value"
+                fi
+            done < "$env_file"
+        else
+            log_error "Archivo .env tiene formato inválido"
+            return 1
+        fi
+    else
+        log_error "Archivo .env no encontrado. Ejecutar: ./scripts/setup-env.sh"
+        return 1
+    fi
+}
+
+# Función para verificar el estado de salud de un contenedor Docker
+check_container_health() {
+    local container=$1
+    local status=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || echo "not_found")
+
+    case "$status" in
+        "healthy")
+            log_success "$container: healthy"
+            ;;
+        "unhealthy")
+            log_error "$container: unhealthy"
+            ;;
+        "starting")
+            log_warning "$container: still starting"
+            ;;
+        "not_found")
+            log_error "$container: container not found"
+            ;;
+        *)
+            log_warning "$container: status unknown ($status)"
+            ;;
+    esac
+}
+
+# Función para verificar estado HTTP/HTTPS de una URL
+check_http_status() {
+    local name=$1
+    local url=$2
+    local expected_codes=${3:-"200 204 302 401"}
+    local timeout=${4:-10}
+
+    local http_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout "$timeout" --max-time $((timeout + 5)) "$url" 2>/dev/null || echo "000")
+
+    if [[ " $expected_codes " =~ " $http_code " ]]; then
+        log_success "$name: HTTP $http_code"
+    elif [[ "$http_code" == "000" ]]; then
+        log_error "$name: Unreachable ($url)"
+    else
+        log_warning "$name: HTTP $http_code (expected: $expected_codes)"
+    fi
+}
+
+# Función para verificar headers de seguridad HTTP
+check_security_headers() {
+    local name=$1
+    local url=$2
+
+    local headers=$(curl -sI --connect-timeout 10 --max-time 15 "$url" 2>/dev/null)
+
+    if [[ -z "$headers" ]]; then
+        log_error "$name: No se pudo obtener headers de $url"
+        return
+    fi
+
+    # HSTS
+    if echo "$headers" | grep -qi "strict-transport-security"; then
+        log_success "$name: HSTS presente"
+    else
+        log_warning "$name: HSTS ausente (Strict-Transport-Security)"
+    fi
+
+    # X-Frame-Options
+    if echo "$headers" | grep -qi "x-frame-options"; then
+        log_success "$name: X-Frame-Options presente"
+    else
+        log_warning "$name: X-Frame-Options ausente"
+    fi
+
+    # X-Content-Type-Options
+    if echo "$headers" | grep -qi "x-content-type-options"; then
+        log_success "$name: X-Content-Type-Options presente"
+    else
+        log_warning "$name: X-Content-Type-Options ausente"
+    fi
+}
