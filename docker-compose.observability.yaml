@@ -12,7 +12,7 @@ services:
   # Prometheus - Recolección de métricas
   # ============================================================================
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.53.3
     container_name: arquisoft-prometheus
     restart: unless-stopped
     command:
@@ -33,6 +33,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -46,7 +47,7 @@ services:
   # Loki - Agregación de logs
   # ============================================================================
   loki:
-    image: grafana/loki:2.9.0
+    image: grafana/loki:2.9.10
     container_name: arquisoft-loki
     restart: unless-stopped
     command: -config.file=/etc/loki/loki-config.yaml
@@ -73,7 +74,7 @@ services:
   # Promtail - Recolector de logs (envía a Loki)
   # ============================================================================
   promtail:
-    image: grafana/promtail:2.9.0
+    image: grafana/promtail:2.9.10
     container_name: arquisoft-promtail
     restart: unless-stopped
     command: -config.file=/etc/promtail/promtail-config.yaml
@@ -81,10 +82,17 @@ services:
       - ./configs/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - traefik-logs:/var/log/traefik:ro
     networks:
       - arquisoft-network
     depends_on:
-      - loki
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/positions.yaml || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     deploy:
       resources:
         limits:
@@ -95,24 +103,28 @@ services:
   # Grafana - Dashboards y visualización
   # ============================================================================
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.4.12
     container_name: arquisoft-grafana
     restart: unless-stopped
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER requerido - ejecutar scripts/setup-env.sh}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD requerido - ejecutar scripts/setup-env.sh}
       GF_USERS_ALLOW_SIGN_UP: false
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
       GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-piechart-panel
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER requerido}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB requerido}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./configs/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./configs/grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
       - arquisoft-network
     depends_on:
-      - prometheus
-      - loki
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
       interval: 30s

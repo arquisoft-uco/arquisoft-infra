@@ -35,3 +35,7 @@ volumes:
     name: arquisoft-loki-data
   grafana-data:
     name: arquisoft-grafana-data
+  
+  # Proxy / Logs
+  traefik-logs:
+    name: arquisoft-traefik-logs

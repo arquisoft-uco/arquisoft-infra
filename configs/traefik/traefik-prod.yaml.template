@@ -1,6 +1,9 @@
 # =============================================
 # Traefik Static Configuration - Production
 # =============================================
+# TEMPLATE: Este archivo es procesado por envsubst en start.sh
+# Requiere: ACME_EMAIL
+# Genera: configs/traefik/traefik-prod.yaml
 
 # API & Dashboard
 api:
@@ -38,14 +41,14 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: brayan.sepulveda4302@soyuco.edu.co
+      email: ${ACME_EMAIL}
       storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web
 
-# Logging
+# Logging (WARN en producción para reducir ruido)
 log:
-  level: INFO
+  level: WARN
   format: json
 
 accessLog:
@@ -54,8 +57,10 @@ accessLog:
   bufferingSize: 100
 
 # Ping for healthcheck
+# Usar entrypoint HTTP (web) para que traefik healthcheck --ping funcione
+# (websecure requiere TLS + SNI válido, causando 404 con sniStrict: true)
 ping:
-  entryPoint: websecure
+  entryPoint: web
 
 # Metrics
 metrics:
