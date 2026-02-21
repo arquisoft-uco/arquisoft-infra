@@ -1,0 +1,86 @@
+# ==============================================================================
+# Arquisoft Infra — Deploy Pipeline
+# ==============================================================================
+# Despliega la aplicación en el servidor on-premise via self-hosted runner
+# Trigger: manual (workflow_dispatch)
+# Runner: Self-hosted (servidor on-premise) — gratis, no consume minutos
+#
+# Prerequisitos:
+#   - Self-hosted runner instalado y corriendo en el servidor
+#   - Docker y Docker Compose disponibles
+#   - .env configurado (scripts/setup-env.sh)
+# ==============================================================================
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Entorno de despliegue'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+        default: dev
+      profile:
+        description: 'Perfil de servicios'
+        required: true
+        type: choice
+        options:
+          - all
+          - core
+          - auth
+        default: all
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event.inputs.environment }} (${{ github.event.inputs.profile }})
+    runs-on: self-hosted
+    timeout-minutes: 15
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      # ── Checkout ──
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      # ── Verificar Docker ──
+      - name: Verificar Docker
+        run: |
+          echo "=== Docker Info ==="
+          docker --version
+          docker compose version
+          echo ""
+          echo "=== Disk Space ==="
+          df -h / || true
+
+      # ── Login GHCR ──
+      - name: Login a GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # ── Verificar .env ──
+      - name: Verificar configuración .env
+        run: |
+          if [ ! -f .env ]; then
+            echo "❌ .env no encontrado. Ejecutar: bash scripts/setup-env.sh"
+            exit 1
+          fi
+          echo "✅ .env encontrado"
+
+      # ── Deploy ──
+      - name: Deploy servicios
+        run: bash scripts/start.sh ${{ github.event.inputs.environment }} ${{ github.event.inputs.profile }}
+
+      # ── Health Check ──
+      - name: Health check
+        run: |
+          echo "Esperando 30s para que los servicios inicien..."
+          sleep 30
+          bash scripts/health-check.sh || true
+
+      # ── Status ──
+      - name: Estado de servicios
+        if: always()
+        run: docker compose -f docker-compose.yaml -f docker-compose.core.yaml ps || true
