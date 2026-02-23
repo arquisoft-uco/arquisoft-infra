@@ -1,0 +1,17 @@
+# ==============================================================================
+# Arquisoft Infra — CODEOWNERS
+# ==============================================================================
+# Asigna reviewers automáticos a Pull Requests
+# ==============================================================================
+
+# Default: equipo DevOps
+* @arquisoft-uco/devops
+
+# Scripts
+scripts/ @arquisoft-uco/devops
+
+# Docker Compose
+docker-compose*.yaml @arquisoft-uco/devops
+
+# Configuraciones de servicios
+configs/ @arquisoft-uco/devops
