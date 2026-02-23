@@ -63,7 +63,9 @@ basic_auth_users:
   prometheus: "$bcrypt_hash"
 EOF
     
-    chmod 600 "$web_yml"
+    # Permisos 644: owner rw, group r, others r
+    # Necesario para que Docker pueda leer el archivo desde el contenedor
+    chmod 644 "$web_yml"
     
     log_success "Prometheus web.yml generado con Basic Auth"
     echo -e "  Credencial: ${YELLOW}prometheus / $(mask_credential "$prometheus_pwd")${NC}"
