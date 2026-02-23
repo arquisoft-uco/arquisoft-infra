@@ -76,10 +76,8 @@ jobs:
       # ── Generar archivos de configuración ──
       - name: Generar archivos de configuración
         run: |
-          # Ejecutar setup-env.sh en modo CI/CD (no-interactivo)
-          # Genera solo archivos faltantes: web.yml, .htpasswd, etc.
-          # Mantiene .env existente y extrae variables de él
-          CI=true SKIP_PROMPTS=true bash scripts/setup-env.sh ${{ github.event.inputs.environment }}
+          # setup-env.sh es idempotente: mantiene .env existente y genera solo archivos faltantes
+          bash scripts/setup-env.sh ${{ github.event.inputs.environment }}
 
       # ── Deploy ──
       - name: Deploy servicios
