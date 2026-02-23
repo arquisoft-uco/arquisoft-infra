@@ -73,6 +73,12 @@ jobs:
           fi
           echo "✅ .env generado desde secret ($(wc -l < .env) líneas)"
 
+      # ── Generar archivos de configuración ──
+      - name: Generar archivos de configuración
+        run: |
+          # setup-env.sh es idempotente: mantiene .env existente y genera solo archivos faltantes
+          bash scripts/setup-env.sh ${{ github.event.inputs.environment }}
+
       # ── Deploy ──
       - name: Deploy servicios
         run: bash scripts/start.sh ${{ github.event.inputs.environment }} ${{ github.event.inputs.profile }}
