@@ -17,7 +17,7 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 - Buscar y seleccionar el recurso `PostgreSQL`, luego seleccionamos el tipo que nos interesa desplegar de este recurso, para nuestro caso usaremos `PostgreSQL 18 (default)`.
 - En la vista de `Configuration` en la sección de `General` usamos el siguiente nombre personalizado `postgresql` y guardamos.
 - Damos clic en `Start`, esperamos y confirmamos que el estado del recurso sea `Running (healthy)`.
-- Para conectarse a la DB se recomienda usar una conexion a traves de un tunel ssh.
+- Para conectarse a la DB se recomienda usar una conexión a través de un tunel ssh.
 - Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción en el archivo `postgresql.conf`.
 
 ## 4. Keycloak
@@ -60,5 +60,10 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 - Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción.
 
 ## 7. Redis
+- Buscar y seleccionar el recurso `Redis`.
+- En la vista de `Configuration` en la sección de `General` usamos el siguiente nombre personalizado `redis-cache` y guardamos.
+- Damos clic en `Start`, esperamos y confirmamos que el estado del recurso sea `Running (healthy)`.
+- Para conectarse a la cache se recomienda usar una conexión a través de un tunel ssh.
+- Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción.
 
 ## 8. MinIO
