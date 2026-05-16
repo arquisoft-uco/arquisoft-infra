@@ -47,7 +47,7 @@ jobs:
     steps:
       # ── Checkout ──
       - name: Checkout código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # ── Verificar Docker ──
       - name: Verificar Docker
