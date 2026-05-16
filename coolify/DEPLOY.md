@@ -18,7 +18,7 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 - En la vista de `Configuration` en la sección de `General` usamos el siguiente nombre personalizado `postgresql` y guardamos.
 - Damos clic en `Start`, esperamos y confirmamos que el estado del recurso sea `Running (healthy)`.
 - Para conectarse a la DB se recomienda usar una conexión a través de un tunel ssh.
-- Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción en el archivo `postgresql.conf`.
+- Después del despliegue se pueden asignar límites de recursos y configurar un tuning personalizado para producción en el archivo `postgresql.conf`.
 
 ## 4. Keycloak
 - Buscar y seleccionar el recurso `Keycloak With Postgres`.
@@ -27,7 +27,7 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 - En la misma vista, ubicamos el apartado de `Services`, damos clic en `Settings` del servicio de `Keycloak` y modificamos el campo `Domains` por el sub-dominio que hayamos configurado, en este caso usaremos el dominio `https://keycloak.arquisoft.top`. Luego damos clic en guardar (si aparece un mensaje de alerta, dile que de todas formas continúe) y regresamos a la vista anterior.
 - Damos clic en `Deploy`, esperamos y confirmamos que el estado del recurso sea `Running (healthy)`.
 - Ingresamos a keycloak a través del dominio e iniciamos sesión con el usuario y clave proporcionado por coolify, dicho usuario es temporal así que se debe crear un nuevo usuario con el role `admin` para el realm de `master`.
-- Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción.
+- Después del despliegue se pueden asignar límites de recursos y configurar un tuning personalizado para producción.
 
 ## 5. RabbitMQ
 - Buscar y seleccionar el recurso `Rabbitmq`.
@@ -47,7 +47,7 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 
 ## 6. Observability
 - Buscar y seleccionar el recurso `Docker Compose Empty`.
-- En la vista de `Create a new Service` copiamos y pegamos el contenido del docker compose.
+- En la vista de `Create a new Service` copiamos y pegamos el contenido del docker compose. **Anexo:** [docker-compose.observability.yml](docker-compose.observability.yml).
 - Editamos el docker compose del recurso agregando o modificando el parametro `services.grafana.labels` el item `coolify.proxy.port=3000`; al parámetro `services.grafana.environment`, el item `GF_SERVER_ROOT_URL=https://grafana.arquisoft.top`; luego de esto guardamos.
 - En la vista de `Configuration` en la sección de `General` usamos el siguiente nombre personalizado `observability` y guardamos.
 - Ahora configuramos el sub-dominio `grafana` desde nuestro proveedor de dominios, en este caso lo configuramos para el domino `arquisoft.top` previamente adquirido.
@@ -67,3 +67,9 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 - Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción.
 
 ## 8. MinIO
+
+## 9. Backend
+
+## 10. Grafana Alloy
+
+## 11. Frontend
