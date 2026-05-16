@@ -47,15 +47,16 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 
 ## 6. Observability
 - Buscar y seleccionar el recurso `Docker Compose Empty`.
-- En la vista de `Create a new Service` copiamos y pegamos el contenido del docker compose y guardamos.
+- En la vista de `Create a new Service` copiamos y pegamos el contenido del docker compose.
 - Editamos el docker compose del recurso agregando o modificando el parametro `services.grafana.labels` el item `coolify.proxy.port=3000`; al parámetro `services.grafana.environment`, el item `GF_SERVER_ROOT_URL=https://grafana.arquisoft.top`; luego de esto guardamos.
 - En la vista de `Configuration` en la sección de `General` usamos el siguiente nombre personalizado `observability` y guardamos.
 - Ahora configuramos el sub-dominio `grafana` desde nuestro proveedor de dominios, en este caso lo configuramos para el domino `arquisoft.top` previamente adquirido.
 - En la misma vista, ubicamos el apartado de `Services`, damos clic en `Settings` del servicio de `Grafana` y modificamos el campo `Domains` por el sub-dominio que hayamos configurado, en este caso usaremos el dominio `https://grafana.arquisoft.top` usado en la variable de entorno del docker compose para el servicio de grafana. Luego damos clic en guardar (si aparece un mensaje de alerta, dile que de todas formas continúe) y regresamos a la vista anterior.
 - Damos clic en `Deploy`, esperamos y confirmamos que el estado del recurso sea `Running (healthy)`.
-- Ingresamos a grafana a través del dominio e iniciamos sesión con el usuario y clave proporcionado por coolify, por defecto el usuario y clave es admin así que debemos iniciar sesión inmediatemente para que grafana nos solicite la nueva clave del usuario.
+- Ingresamos a grafana a través del dominio e iniciamos sesión con el usuario y clave proporcionado por coolify, por defecto el usuario y clave es `admin` así que debemos iniciar sesión inmediatemente para que grafana nos solicite la nueva clave del usuario.
 - En grafana vamos a la sección de `Connections >> Add new connection`, buscamos `Loki` y lo seleccionamos, damos clic en `Add new data source`, en el campo `URL` asignamos la url donde está desplegado nuestro servicio de loki internamente en el servidor `http://loki:3100` y guardamos.
 - En grafana vamos a la sección de `Connections >> Add new connection`, buscamos `Prometheus` y lo seleccionamos, damos clic en `Add new data source`, en el campo `URL` asignamos la url donde está desplegado nuestro servicio de prometheus internamente en el servidor `http://prometheus:9090` y guardamos.
+- En grafana vamos a la sección de `Connections >> Data sources`, allí podremos ver las dos conexiones previamente configuradas.
 - Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción.
 
 ## 7. Redis
