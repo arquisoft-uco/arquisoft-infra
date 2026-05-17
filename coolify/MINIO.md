@@ -190,21 +190,69 @@ Ambos deben retornar la IP del servidor. La propagación puede tomar entre 5 min
 
 ---
 
-## 7. Variables de entorno
+## 7. Variables de entorno y casos de despliegue
 
-Configurar en `Environment Variables` del recurso en Coolify **antes** del primer despliegue:
+El compose soporta tres configuraciones según la topología. Las variables requeridas y los labels activos cambian por caso.
+
+---
+
+### Caso A — Solo consola web (configuración por defecto)
+
+El API S3 no está expuesto a internet. La consola autentica internamente via `localhost:9000`. El backend (si está en el mismo servidor) accede por red Docker interna.
+
+**Labels activos:** solo `minio-console` (puerto 9001).
+
+**Variables requeridas en Coolify:**
 
 | Variable | Descripción | Ejemplo |
 |---|---|---|
-| `MINIO_ROOT_USER` | Usuario administrador raíz. Evitar valores genéricos como `admin` o `minio`. | `arquisoft-minio-admin` |
-| `MINIO_ROOT_PASSWORD` | Contraseña del administrador raíz. Mínimo 8 caracteres, se recomienda 20+ caracteres aleatorios. | (generada con gestor de contraseñas) |
-| `MINIO_API_DOMAIN` | Subdominio para la API S3, sin protocolo. Usado en los labels Traefik del compose. | `s3.arquisoft.top` |
-| `MINIO_CONSOLE_DOMAIN` | Subdominio para la consola web, sin protocolo. | `minio.arquisoft.top` |
+| `MINIO_ROOT_USER` | Usuario administrador raíz. Evitar valores genéricos. | `arquisoft-minio-admin` |
+| `MINIO_ROOT_PASSWORD` | Contraseña raíz. Mínimo 8 caracteres, se recomienda 20+. | (generada con gestor de contraseñas) |
+| `MINIO_CONSOLE_DOMAIN` | Subdominio de la consola, sin protocolo. Usado solo en documentación; el dominio va hardcodeado en el label. | `minio.arquisoft.top` |
 
-A partir de esas variables, el compose construye internamente:
+`MINIO_SERVER_URL` y `MINIO_BROWSER_REDIRECT_URL` **no se definen** — están comentadas en el compose.
 
-- **`MINIO_SERVER_URL`** (`https://${MINIO_API_DOMAIN}`): informa a MinIO cuál es su URL pública. La consola la usa para autenticar al usuario (hace una llamada interna a este endpoint) y para generar presigned URLs. **Requisito**: el dominio `MINIO_API_DOMAIN` debe tener DNS configurado apuntando al servidor y el certificado TLS de Let's Encrypt debe estar emitido antes de intentar el primer login. Si el cert no existe aún (recién se desplegó), el login falla con 503 hasta que Traefik lo emita.
-- **`MINIO_BROWSER_REDIRECT_URL`** (`https://${MINIO_CONSOLE_DOMAIN}`): indica a MinIO la URL pública de su consola. MinIO la usa para redirigir al navegador cuando alguien accede al puerto S3 (9000) vía browser en lugar de un SDK. No interfiere con el tráfico del router de la consola (puerto 9001).
+---
+
+### Caso B — Consola web + API S3 expuesto (mismo servidor o presigned URLs)
+
+Necesario cuando:
+- El backend necesita generar **presigned URLs** para que clientes externos accedan directamente a objetos en MinIO.
+- El backend está en un servidor diferente **sin** red privada compartida con MinIO.
+
+**Labels activos:** `minio-console` (puerto 9001) + `minio-api` (puerto 9000) — descomentar los labels de `minio-api` en el compose.
+
+**Variables requeridas en Coolify:**
+
+| Variable | Descripción | Ejemplo |
+|---|---|---|
+| `MINIO_ROOT_USER` | Usuario administrador raíz. | `arquisoft-minio-admin` |
+| `MINIO_ROOT_PASSWORD` | Contraseña raíz. | (generada con gestor de contraseñas) |
+| `MINIO_CONSOLE_DOMAIN` | Subdominio de la consola, sin protocolo. | `minio.arquisoft.top` |
+| `MINIO_API_DOMAIN` | Subdominio de la API S3, sin protocolo. | `s3.arquisoft.top` |
+
+Con estas variables el compose activa:
+- `MINIO_SERVER_URL=https://${MINIO_API_DOMAIN}`: la consola usa este URL para autenticar internamente. **Requisito crítico**: el DNS de `MINIO_API_DOMAIN` debe apuntar al servidor y el cert TLS de Let's Encrypt debe estar emitido antes del primer login. Si el cert aún no existe (recién se descomentaron los labels), el login falla con 503 hasta que Traefik lo emita — esperar 2-3 minutos y reintentar.
+- `MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}`: redirige al browser a la consola cuando accede al puerto S3 via navegador.
+
+---
+
+### Caso C — Backend en servidor diferente con red privada (LAN)
+
+El API S3 no necesita estar expuesto a internet. El backend accede a MinIO via la IP privada del servidor.
+
+**Labels activos:** solo `minio-console` (puerto 9001).
+
+**Configuración adicional en el compose:** agregar `ports` con binding a la IP privada:
+
+```yaml
+ports:
+  - "<ip-privada-servidor-minio>:9000:9000"
+```
+
+El backend conecta a `http://<ip-privada>:9000`. Este puerto no es alcanzable desde internet, solo desde la LAN privada.
+
+**Variables requeridas:** igual que Caso A — sin `MINIO_SERVER_URL`.
 
 ---
 
@@ -303,18 +351,13 @@ El backend **no debe usar las credenciales raíz**. Crear un Access Key dedicado
 3. Guardar el `Access Key` y el `Secret Key` generados antes de cerrar — el `Secret Key` no es recuperable.
 4. Opcionalmente, restringir en `Policy` el acceso solo a los buckets que el backend necesita.
 
-Parámetros de conexión para el SDK Java según la topología de despliegue:
+Parámetros de conexión para el SDK Java según el caso de despliegue (ver sección 7):
 
-- **Backend en el mismo servidor (red Docker `coolify`):** endpoint `http://minio:9000`, TLS deshabilitado. El nombre `minio` resuelve al contenedor dentro de la red Docker. Es la opción más eficiente — el tráfico no sale del servidor.
+- **Caso A / C — Backend en el mismo servidor (red Docker `coolify`):** endpoint `http://minio:9000`, TLS deshabilitado. El nombre `minio` resuelve al contenedor dentro de la red Docker. El tráfico no sale del servidor.
 
-- **Backend en servidor diferente, misma red privada (LAN):** el puerto 9000 no está expuesto al host por defecto. Para habilitarlo sin exponerlo a internet, agregar en el compose la sección `ports` con un binding a la IP privada del servidor de MinIO:
-  ```yaml
-  ports:
-    - "<ip-privada-servidor-minio>:9000:9000"
-  ```
-  El backend conecta entonces a `http://<ip-privada-servidor-minio>:9000`, TLS deshabilitado. Este puerto no es alcanzable desde internet, solo desde la LAN privada.
+- **Caso C — Backend en servidor diferente, misma red privada (LAN):** endpoint `http://<ip-privada-servidor-minio>:9000`, TLS deshabilitado. Requiere el binding de puerto en el compose (ver Caso C en sección 7).
 
-- **Backend en servidor diferente, sin red privada compartida:** descomentar los labels `minio-api` en el compose para exponer `s3.arquisoft.top` via Traefik. El backend conecta a `https://s3.arquisoft.top`, puerto `443`, TLS habilitado.
+- **Caso B — Backend en servidor diferente, sin red privada compartida:** endpoint `https://s3.arquisoft.top`, puerto `443`, TLS habilitado. Requiere los labels `minio-api` descomentados y `MINIO_SERVER_URL` configurado.
 
 ---
 

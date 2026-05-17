@@ -9,8 +9,9 @@ services:
     labels:
       - coolify.managed=true
       - traefik.enable=true
-      # Consola web (puerto 9001): dominio hardcodeado porque la sustitución de variables
-      # de Coolify no aplica al contexto de parseo de labels en Docker Compose.
+
+      # ── Consola web (puerto 9001) ────────────────────────────────────────────
+      # Dominio hardcodeado: las variables de Coolify no se sustituyen en labels.
       # Actualizar este valor si cambia el dominio de la consola.
       - "traefik.http.routers.minio-console.rule=Host(`minio.arquisoft.top`)"
       - traefik.http.routers.minio-console.entrypoints=https
@@ -18,23 +19,43 @@ services:
       - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
       - traefik.http.routers.minio-console.service=minio-console
       - traefik.http.services.minio-console.loadbalancer.server.port=9001
-      # API S3 (puerto 9000): requerido para que la consola web pueda autenticar al usuario
-      # (el browser llama al endpoint STS en el puerto 9000 durante el login).
-      # El backend en el mismo servidor usa http://minio:9000 (red interna) — más eficiente.
-      - "traefik.http.routers.minio-api.rule=Host(`s3.arquisoft.top`)"
-      - traefik.http.routers.minio-api.entrypoints=https
-      - traefik.http.routers.minio-api.tls=true
-      - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
-      - traefik.http.routers.minio-api.service=minio-api
-      - traefik.http.services.minio-api.loadbalancer.server.port=9000
+
+      # ── API S3 (puerto 9000) ─────────────────────────────────────────────────
+      # Comentado por defecto: la consola autentica internamente via localhost:9000
+      # (sin MINIO_SERVER_URL), y el backend accede por red Docker interna.
+      #
+      # Descomentar y configurar MINIO_SERVER_URL en los casos:
+      #   A) Backend en servidor diferente sin red privada compartida
+      #   B) Se necesitan presigned URLs para acceso externo directo a objetos
+      #
+      # También requiere: registro DNS s3.<dominio> → IP del servidor y redeploy
+      # para que Let's Encrypt emita el cert antes de intentar el login.
+      # - "traefik.http.routers.minio-api.rule=Host(`s3.arquisoft.top`)"
+      # - traefik.http.routers.minio-api.entrypoints=https
+      # - traefik.http.routers.minio-api.tls=true
+      # - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
+      # - traefik.http.routers.minio-api.service=minio-api
+      # - traefik.http.services.minio-api.loadbalancer.server.port=9000
+
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-      # URL pública de la API S3 — la consola la usa para autenticar internamente y para presigned URLs.
-      # Requiere que el dominio tenga DNS configurado y cert TLS válido antes del primer login.
-      - MINIO_SERVER_URL=https://${MINIO_API_DOMAIN}
-      # URL pública de la consola — MinIO redirige aquí cuando se accede al puerto S3 desde un browser
-      - MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}
+
+      # ── MINIO_SERVER_URL ─────────────────────────────────────────────────────
+      # NO definir cuando el API S3 no está expuesto a internet.
+      # Sin esta variable la consola autentica via localhost:9000 (siempre accesible).
+      #
+      # Definir SOLO si los labels del API S3 están descomentados:
+      #  - MINIO_SERVER_URL=https://${MINIO_API_DOMAIN}
+      #
+      # Advertencia: debe existir cert TLS válido en MINIO_API_DOMAIN antes del
+      # primer login; de lo contrario la consola retorna 503 al intentar autenticar.
+
+      # ── MINIO_BROWSER_REDIRECT_URL ───────────────────────────────────────────
+      # Redirige al browser a la consola cuando accede al puerto S3 vía browser.
+      # Solo relevante si el API S3 está expuesto. Sin efecto cuando está comentado.
+      # - MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}
+
     volumes:
       - minio-data:/data
     networks:
