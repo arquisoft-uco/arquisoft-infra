@@ -8,22 +8,30 @@ services:
     command: server /data --console-address ":9001"
     labels:
       - coolify.managed=true
-      # Coolify utiliza este label para enrutar el dominio configurado en la UI al puerto de la consola
-      - coolify.proxy.port=9001
-      # Router explícito para la API S3 (puerto 9000) con dominio independiente
       - traefik.enable=true
-      - "traefik.http.routers.minio-api.rule=Host(`${MINIO_API_DOMAIN}`)"
-      - traefik.http.routers.minio-api.entrypoints=https
-      - traefik.http.routers.minio-api.tls=true
-      - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
-      - traefik.http.routers.minio-api.service=minio-api
-      - traefik.http.services.minio-api.loadbalancer.server.port=9000
+      # Consola web (puerto 9001): dominio hardcodeado porque la sustitución de variables
+      # de Coolify no aplica al contexto de parseo de labels en Docker Compose.
+      # Actualizar este valor si cambia el dominio de la consola.
+      - "traefik.http.routers.minio-console.rule=Host(`minio.arquisoft.top`)"
+      - traefik.http.routers.minio-console.entrypoints=https
+      - traefik.http.routers.minio-console.tls=true
+      - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
+      - traefik.http.routers.minio-console.service=minio-console
+      - traefik.http.services.minio-console.loadbalancer.server.port=9001
+      # API S3 (puerto 9000): deshabilitada — el backend accede vía red interna (http://minio:9000).
+      # Descomentar si el backend está en un servidor diferente sin red privada compartida.
+      # - "traefik.http.routers.minio-api.rule=Host(`s3.arquisoft.top`)"
+      # - traefik.http.routers.minio-api.entrypoints=https
+      # - traefik.http.routers.minio-api.tls=true
+      # - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
+      # - traefik.http.routers.minio-api.service=minio-api
+      # - traefik.http.services.minio-api.loadbalancer.server.port=9000
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
       # URL pública de la API S3 — necesaria para que los SDKs generen URLs presignadas correctas
       - MINIO_SERVER_URL=https://${MINIO_API_DOMAIN}
-      # URL pública de la consola — necesaria para que Traefik redirija correctamente al navegador
+      # URL pública de la consola — MinIO redirige aquí cuando se accede al puerto S3 desde un browser
       - MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}
     volumes:
       - minio-data:/data
@@ -33,7 +41,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9000/minio/health/live || exit 1"]
+      test: ["CMD", "mcli", "ready", "local"]
       interval: 30s
       timeout: 10s
       retries: 3

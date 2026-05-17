@@ -152,7 +152,7 @@ El archivo Docker Compose para este despliegue se encuentra en:
 
 `coolify/docker-compose.minio.yml`
 
-Este archivo define el servicio `minio` con imagen `pgsty/minio:latest`, configuración de Traefik para dos dominios (API S3 y consola web), healthcheck, volumen de datos persistente, límites de recursos y logging.
+Este archivo define el servicio `minio` con imagen `pgsty/minio:RELEASE.2026-04-17T00-00-00Z`, configuración de Traefik para dos dominios (API S3 y consola web), healthcheck via `mcli ready local`, volumen de datos persistente, límites de recursos y logging.
 
 > **Tag anclado:** La imagen está fijada a `RELEASE.2026-04-17T00-00-00Z`, el último release verificado de `pgsty/minio` al momento de la escritura de este manual (mayo 2026). Para actualizar, consultar las releases en `github.com/pgsty/minio/releases`, ejecutar un nuevo escaneo Trivy sobre el tag candidato, y si el resultado es aceptable, actualizar el tag en el compose y redesplegar desde Coolify.
 
@@ -176,14 +176,14 @@ En el panel DNS del proveedor, crear los siguientes registros tipo **A**:
 
 | Subdominio | Tipo | Valor | Descripción |
 |---|---|---|---|
-| `s3.arquisoft.top` | A | IP pública del servidor | Endpoint API S3 |
-| `storage.arquisoft.top` | A | IP pública del servidor | Consola web de MinIO |
+| `minio.arquisoft.top` | A | IP pública del servidor | Consola web de MinIO |
+| `s3.arquisoft.top` | A | IP pública del servidor | Endpoint API S3 (solo si se expone a internet) |
 
 Verificar propagación antes de desplegar:
 
 ```
+nslookup minio.arquisoft.top
 nslookup s3.arquisoft.top
-nslookup storage.arquisoft.top
 ```
 
 Ambos deben retornar la IP del servidor. La propagación puede tomar entre 5 minutos y 2 horas.
@@ -199,12 +199,12 @@ Configurar en `Environment Variables` del recurso en Coolify **antes** del prime
 | `MINIO_ROOT_USER` | Usuario administrador raíz. Evitar valores genéricos como `admin` o `minio`. | `arquisoft-minio-admin` |
 | `MINIO_ROOT_PASSWORD` | Contraseña del administrador raíz. Mínimo 8 caracteres, se recomienda 20+ caracteres aleatorios. | (generada con gestor de contraseñas) |
 | `MINIO_API_DOMAIN` | Subdominio para la API S3, sin protocolo. | `s3.arquisoft.top` |
-| `MINIO_CONSOLE_DOMAIN` | Subdominio para la consola web, sin protocolo. | `storage.arquisoft.top` |
+| `MINIO_CONSOLE_DOMAIN` | Subdominio para la consola web, sin protocolo. | `minio.arquisoft.top` |
 
 A partir de esas cuatro variables, el compose construye internamente:
 
-- **`MINIO_SERVER_URL`** (`https://${MINIO_API_DOMAIN}`): informa a MinIO cuál es su URL pública. Sin esta variable, los SDKs generan URLs presignadas con la IP interna del contenedor, haciendo las URLs inutilizables desde el exterior.
-- **`MINIO_BROWSER_REDIRECT_URL`** (`https://${MINIO_CONSOLE_DOMAIN}`): URL de redirección para la consola web. Sin esta variable, la consola falla al cargarse detrás de Traefik.
+- **`MINIO_SERVER_URL`** (`https://${MINIO_API_DOMAIN}`): informa a MinIO cuál es su URL pública para la generación de URLs presignadas. Sin esta variable, los SDKs generan URLs con la IP interna del contenedor, inutilizables desde el exterior.
+- **`MINIO_BROWSER_REDIRECT_URL`** (`https://${MINIO_CONSOLE_DOMAIN}`): indica a MinIO la URL pública de su consola. MinIO la usa para redirigir al navegador cuando alguien accede al puerto S3 (9000) vía browser en lugar de un SDK. No interfiere con el tráfico del router de la consola (puerto 9001).
 
 ---
 
@@ -229,14 +229,13 @@ En `Configuration → General`, cambiar el nombre del recurso a `minio` y guarda
 2. Agregar las cuatro variables de la sección 7.
 3. Guardar los cambios.
 
-### 8.4. Configurar el dominio de la consola en Coolify
+### 8.4. Dominios — dejar vacío en la UI de Coolify
 
-1. En `Configuration → Services`, dar clic en `Settings` del servicio `minio`.
-2. En el campo `Domains`, ingresar: `https://storage.arquisoft.top`.
-3. Guardar. Si aparece alerta de confirmación, continuar.
-4. Regresar a la vista de `Configuration`.
+Ambos dominios están gestionados íntegramente por las etiquetas Traefik en el compose (`traefik.http.routers.minio-console.*` y `traefik.http.routers.minio-api.*`). Traefik solicita los certificados TLS a Let's Encrypt directamente cuando detecta esos routers.
 
-> El dominio de la API S3 (`s3.arquisoft.top`) es gestionado por las etiquetas Traefik del compose y no requiere configuración adicional en la UI de Coolify.
+**No configurar ningún dominio en la UI de Coolify** (Services → Settings → Domains). Si se configura un dominio ahí, Coolify genera etiquetas Traefik adicionales que crean un router duplicado y conflictos de enrutamiento que se manifiestan como `ERR_TOO_MANY_REDIRECTS` o `ERR_NETWORK_CHANGED`.
+
+> **Regla**: nunca mezclar `coolify.proxy.port` con routers Traefik explícitos para el mismo servicio. Elegir uno u otro. Para MinIO, donde se necesitan dos puertos con dos dominios diferentes, los routers explícitos son la única opción que funciona.
 
 ### 8.5. Desplegar
 
@@ -249,22 +248,24 @@ En `Configuration → General`, cambiar el nombre del recurso a `minio` y guarda
 ## 9. Verificación del despliegue
 
 ```
+curl -I https://minio.arquisoft.top
+```
+
+Debe retornar `HTTP/2 200` o `HTTP/2 303`. Verificar también que el certificado TLS sea válido (Let's Encrypt) accediendo desde un navegador.
+
+Si el endpoint de la API S3 está expuesto (labels de `minio-api` descomentados en el compose):
+
+```
 curl -I https://s3.arquisoft.top/minio/health/live
 ```
 
 Debe retornar `HTTP/2 200`. Si hay error de conexión, verificar propagación DNS y logs del contenedor.
 
-```
-curl -I https://storage.arquisoft.top
-```
-
-Debe retornar `HTTP/2 200` o `HTTP/2 303`. Verificar también que el certificado TLS sea válido (Let's Encrypt) accediendo desde un navegador.
-
 ---
 
 ## 10. Primer acceso a la consola
 
-1. Abrir un navegador y acceder a `https://storage.arquisoft.top`.
+1. Abrir un navegador y acceder a `https://minio.arquisoft.top`.
 2. Iniciar sesión con el usuario y contraseña configurados en `MINIO_ROOT_USER` y `MINIO_ROOT_PASSWORD`.
 3. La consola cargará el panel principal de MinIO.
 
@@ -302,10 +303,18 @@ El backend **no debe usar las credenciales raíz**. Crear un Access Key dedicado
 3. Guardar el `Access Key` y el `Secret Key` generados antes de cerrar — el `Secret Key` no es recuperable.
 4. Opcionalmente, restringir en `Policy` el acceso solo a los buckets que el backend necesita.
 
-Parámetros de conexión para el SDK Java:
+Parámetros de conexión para el SDK Java según la topología de despliegue:
 
-- **Acceso externo (vía Traefik, HTTPS):** endpoint `https://s3.arquisoft.top`, puerto `443`, TLS habilitado.
-- **Acceso interno (red Coolify, más eficiente para archivos grandes):** endpoint `http://minio:9000`, puerto `9000`, TLS deshabilitado. Solo disponible si el backend corre en el mismo servidor gestionado por Coolify.
+- **Backend en el mismo servidor (red Docker `coolify`):** endpoint `http://minio:9000`, TLS deshabilitado. El nombre `minio` resuelve al contenedor dentro de la red Docker. Es la opción más eficiente — el tráfico no sale del servidor.
+
+- **Backend en servidor diferente, misma red privada (LAN):** el puerto 9000 no está expuesto al host por defecto. Para habilitarlo sin exponerlo a internet, agregar en el compose la sección `ports` con un binding a la IP privada del servidor de MinIO:
+  ```yaml
+  ports:
+    - "<ip-privada-servidor-minio>:9000:9000"
+  ```
+  El backend conecta entonces a `http://<ip-privada-servidor-minio>:9000`, TLS deshabilitado. Este puerto no es alcanzable desde internet, solo desde la LAN privada.
+
+- **Backend en servidor diferente, sin red privada compartida:** descomentar los labels `minio-api` en el compose para exponer `s3.arquisoft.top` via Traefik. El backend conecta a `https://s3.arquisoft.top`, puerto `443`, TLS habilitado.
 
 ---
 
@@ -427,7 +436,7 @@ Los argumentos que reducen el riesgo práctico de estos hallazgos:
 
 - **Versión anclada** (`RELEASE.2026-04-17T00-00-00Z`): garantiza que el ambiente es reproducible y que una actualización inesperada del tag `:latest` no introduce cambios no auditados.
 - **`security_opt: no-new-privileges:true`**: impide que cualquier proceso dentro del contenedor obtenga privilegios adicionales mediante `setuid`, `setgid` u otros mecanismos. Mitiga directamente CVE-2026-4878.
-- **Puertos no expuestos al host**: los puertos 9000 y 9001 solo son accesibles dentro de la red `coolify`. Todo el tráfico externo pasa por Traefik con TLS obligatorio.
+- **Puertos no expuestos al host por defecto**: los puertos 9000 y 9001 solo son accesibles dentro de la red Docker `coolify`. El acceso externo a la consola pasa por Traefik con TLS. El puerto 9000 (API S3) puede exponerse selectivamente a una IP privada via `ports:` si el backend está en otro servidor de la misma LAN (ver sección 12).
 - **Logging con rotación**: limita el consumo de disco por logs de acceso.
 
 ### Medidas adicionales recomendadas en el servidor
