@@ -68,6 +68,8 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 
 ## 8. MinIO
 
+Ver manual completo de configuración e instalación: [MINIO.md](MINIO.md)
+
 ## 9. Backend
 
 ## 10. Grafana Alloy

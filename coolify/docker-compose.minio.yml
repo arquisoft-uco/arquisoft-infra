@@ -1,0 +1,62 @@
+services:
+  minio:
+    # pgsty/minio: fork comunitario activo de MinIO bajo AGPL v3
+    # Versión anclada — NO usar :latest en producción
+    # Verificar nuevos releases en: https://github.com/pgsty/minio/releases
+    image: pgsty/minio:RELEASE.2026-04-17T00-00-00Z
+    container_name: minio
+    command: server /data --console-address ":9001"
+    labels:
+      - coolify.managed=true
+      # Coolify utiliza este label para enrutar el dominio configurado en la UI al puerto de la consola
+      - coolify.proxy.port=9001
+      # Router explícito para la API S3 (puerto 9000) con dominio independiente
+      - traefik.enable=true
+      - "traefik.http.routers.minio-api.rule=Host(`${MINIO_API_DOMAIN}`)"
+      - traefik.http.routers.minio-api.entrypoints=https
+      - traefik.http.routers.minio-api.tls=true
+      - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.minio-api.service=minio-api
+      - traefik.http.services.minio-api.loadbalancer.server.port=9000
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      # URL pública de la API S3 — necesaria para que los SDKs generen URLs presignadas correctas
+      - MINIO_SERVER_URL=https://${MINIO_API_DOMAIN}
+      # URL pública de la consola — necesaria para que Traefik redirija correctamente al navegador
+      - MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}
+    volumes:
+      - minio-data:/data
+    networks:
+      - coolify
+    # Hardening: impide que procesos dentro del contenedor escalen privilegios
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9000/minio/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+networks:
+  coolify:
+    external: true
+
+volumes:
+  minio-data:
+    name: minio_data
