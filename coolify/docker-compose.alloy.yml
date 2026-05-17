@@ -1,0 +1,48 @@
+# ============================================================
+# Stack: Alloy — Server 1 (servidor del backend)
+# ============================================================
+# Desplegado en el mismo servidor que el backend para acceder
+# al Docker socket y capturar sus logs.
+# Envía logs a Loki en Server 2 (loki.arquisoft.top).
+#
+# Pre-requisito: copiar config.alloy al servidor antes del deploy
+#   ssh root@<SERVER1_IP> 'mkdir -p /opt/alloy'
+#   scp infra/coolify/config.alloy root@<SERVER1_IP>:/opt/alloy/config.alloy
+# ============================================================
+services:
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: alloy
+    labels:
+      - coolify.managed=true
+    group_add:
+      - "999"  # GID del grupo docker en el host — verificar con: stat -c '%g' /var/run/docker.sock
+    environment:
+      # Endpoints de destino — reemplazar <SERVER2_PRIVATE_IP> con la IP privada de Server 2.
+      # Prometheus requiere que el puerto 9090 esté expuesto en docker-compose.yml de Server 2.
+      - LOKI_URL=http://<SERVER2_PRIVATE_IP>:3100/loki/api/v1/push
+      - PROMETHEUS_URL=http://<SERVER2_PRIVATE_IP>:9090/api/v1/write
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/alloy/config.alloy:/etc/alloy/config.alloy:ro
+    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    networks:
+      - coolify
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:12345/-/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 128M
+
+networks:
+  coolify:
+    external: true

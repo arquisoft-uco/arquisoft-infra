@@ -57,14 +57,14 @@ Para agregar un recursos damos clic en el botón para agregar recursos el cual n
 - En grafana vamos a la sección de `Connections >> Add new connection`, buscamos `Loki` y lo seleccionamos, damos clic en `Add new data source`, en el campo `URL` asignamos la url donde está desplegado nuestro servicio de loki internamente en el servidor `http://loki:3100` y guardamos.
 - En grafana vamos a la sección de `Connections >> Add new connection`, buscamos `Prometheus` y lo seleccionamos, damos clic en `Add new data source`, en el campo `URL` asignamos la url donde está desplegado nuestro servicio de prometheus internamente en el servidor `http://prometheus:9090` y guardamos.
 - En grafana vamos a la sección de `Connections >> Data sources`, allí podremos ver las dos conexiones previamente configuradas.
-- Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción.
+- Después del despliegue se pueden asignar límites de recursos y configurar un tuning personalizado para producción.
 
 ## 7. Redis
 - Buscar y seleccionar el recurso `Redis`.
 - En la vista de `Configuration` en la sección de `General` usamos el siguiente nombre personalizado `redis-cache` y guardamos.
 - Damos clic en `Start`, esperamos y confirmamos que el estado del recurso sea `Running (healthy)`.
 - Para conectarse a la cache se recomienda usar una conexión a través de un tunel ssh.
-- Después del despliegue se pueden asignar limites de recursos y configurar un tuning personalizado para producción.
+- Después del despliegue se pueden asignar límites de recursos y configurar un tuning personalizado para producción.
 
 ## 8. MinIO
 
@@ -73,5 +73,25 @@ Ver manual completo de configuración e instalación: [MINIO.md](MINIO.md)
 ## 9. Backend
 
 ## 10. Grafana Alloy
+- Agregar label `monitoring=arquisoft-backend` al backend `En Coolify → app del backend → **Configuration → Labels (Custom Labels)**`, si no es posible modificar los label, asegurate de que el campo de check `Readonly labels` esté desmarcado.
+- Hacer **Redeploy** del backend para que el label quede aplicado. Sin este paso,
+Alloy no capturará ningún log.
+- Copiar el archivo [config.alloy](config.alloy) al servidor:
+Alloy lee la configuración desde una ruta fija del host. Debe copiarse antes del
+primer deploy y cada vez que el archivo cambie.
+```bash
+ssh root@<SERVER1_IP> 'mkdir -p /opt/alloy'
+scp infra/coolify/config.alloy root@<SERVER1_IP>:/opt/alloy/config.alloy
+```
+- Buscar y seleccionar el recurso `Docker Compose Empty`.
+- En la vista de `Create a new Service` copiamos y pegamos el contenido del docker compose. **Anexo:** [docker-compose.alloy.yml](docker-compose.alloy.yml). En este paso también podríamos modificar las variables de entorno desde el docker compose.
+- En la vista de `Configuration` en la sección de `General` usamos el siguiente nombre personalizado `alloy` y guardamos.
+- En la vista de `Configuration` en la sección de `Environment Variables` configurar las siguientes variables de entorno si no fueron configuradas desde el docker compose:
+| Variable | Valor |
+|---|---|
+| `LOKI_URL` | `http://<SERVER2_PRIVATE_IP>:3100/loki/api/v1/push` |
+| `PROMETHEUS_URL` | `http://<SERVER2_PRIVATE_IP>:9090/api/v1/write` |
+- Damos clic en `Deploy`, esperamos y confirmamos que el estado del recurso sea `Running (healthy)`.
+- Después del despliegue se pueden asignar límites de recursos y configurar un tuning personalizado para producción.
 
 ## 11. Frontend
