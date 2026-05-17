@@ -177,7 +177,7 @@ En el panel DNS del proveedor, crear los siguientes registros tipo **A**:
 | Subdominio | Tipo | Valor | Descripción |
 |---|---|---|---|
 | `minio.arquisoft.top` | A | IP pública del servidor | Consola web de MinIO |
-| `s3.arquisoft.top` | A | IP pública del servidor | Endpoint API S3 (solo si se expone a internet) |
+| `s3.arquisoft.top` | A | IP pública del servidor | Endpoint API S3 (requerido para login de consola y presigned URLs) |
 
 Verificar propagación antes de desplegar:
 
@@ -198,12 +198,12 @@ Configurar en `Environment Variables` del recurso en Coolify **antes** del prime
 |---|---|---|
 | `MINIO_ROOT_USER` | Usuario administrador raíz. Evitar valores genéricos como `admin` o `minio`. | `arquisoft-minio-admin` |
 | `MINIO_ROOT_PASSWORD` | Contraseña del administrador raíz. Mínimo 8 caracteres, se recomienda 20+ caracteres aleatorios. | (generada con gestor de contraseñas) |
-| `MINIO_API_DOMAIN` | Subdominio para la API S3, sin protocolo. | `s3.arquisoft.top` |
+| `MINIO_API_DOMAIN` | Subdominio para la API S3, sin protocolo. Usado en los labels Traefik del compose. | `s3.arquisoft.top` |
 | `MINIO_CONSOLE_DOMAIN` | Subdominio para la consola web, sin protocolo. | `minio.arquisoft.top` |
 
-A partir de esas cuatro variables, el compose construye internamente:
+A partir de esas variables, el compose construye internamente:
 
-- **`MINIO_SERVER_URL`** (`https://${MINIO_API_DOMAIN}`): informa a MinIO cuál es su URL pública para la generación de URLs presignadas. Sin esta variable, los SDKs generan URLs con la IP interna del contenedor, inutilizables desde el exterior.
+- **`MINIO_SERVER_URL`** (`https://${MINIO_API_DOMAIN}`): informa a MinIO cuál es su URL pública. La consola la usa para autenticar al usuario (hace una llamada interna a este endpoint) y para generar presigned URLs. **Requisito**: el dominio `MINIO_API_DOMAIN` debe tener DNS configurado apuntando al servidor y el certificado TLS de Let's Encrypt debe estar emitido antes de intentar el primer login. Si el cert no existe aún (recién se desplegó), el login falla con 503 hasta que Traefik lo emita.
 - **`MINIO_BROWSER_REDIRECT_URL`** (`https://${MINIO_CONSOLE_DOMAIN}`): indica a MinIO la URL pública de su consola. MinIO la usa para redirigir al navegador cuando alguien accede al puerto S3 (9000) vía browser en lugar de un SDK. No interfiere con el tráfico del router de la consola (puerto 9001).
 
 ---
@@ -253,13 +253,13 @@ curl -I https://minio.arquisoft.top
 
 Debe retornar `HTTP/2 200` o `HTTP/2 303`. Verificar también que el certificado TLS sea válido (Let's Encrypt) accediendo desde un navegador.
 
-Si el endpoint de la API S3 está expuesto (labels de `minio-api` descomentados en el compose):
-
 ```
 curl -I https://s3.arquisoft.top/minio/health/live
 ```
 
-Debe retornar `HTTP/2 200`. Si hay error de conexión, verificar propagación DNS y logs del contenedor.
+Debe retornar `HTTP/2 200`. Si hay error de conexión, verificar propagación DNS del subdominio `s3.arquisoft.top` y los logs del contenedor.
+
+> El endpoint S3 es necesario aunque el backend use la red interna. La consola web (browser) hace llamadas al puerto 9000 durante el login (endpoint STS) y para operaciones sobre objetos.
 
 ---
 

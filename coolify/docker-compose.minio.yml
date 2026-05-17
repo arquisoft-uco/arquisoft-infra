@@ -18,18 +18,20 @@ services:
       - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
       - traefik.http.routers.minio-console.service=minio-console
       - traefik.http.services.minio-console.loadbalancer.server.port=9001
-      # API S3 (puerto 9000): deshabilitada — el backend accede vía red interna (http://minio:9000).
-      # Descomentar si el backend está en un servidor diferente sin red privada compartida.
-      # - "traefik.http.routers.minio-api.rule=Host(`s3.arquisoft.top`)"
-      # - traefik.http.routers.minio-api.entrypoints=https
-      # - traefik.http.routers.minio-api.tls=true
-      # - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
-      # - traefik.http.routers.minio-api.service=minio-api
-      # - traefik.http.services.minio-api.loadbalancer.server.port=9000
+      # API S3 (puerto 9000): requerido para que la consola web pueda autenticar al usuario
+      # (el browser llama al endpoint STS en el puerto 9000 durante el login).
+      # El backend en el mismo servidor usa http://minio:9000 (red interna) — más eficiente.
+      - "traefik.http.routers.minio-api.rule=Host(`s3.arquisoft.top`)"
+      - traefik.http.routers.minio-api.entrypoints=https
+      - traefik.http.routers.minio-api.tls=true
+      - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.minio-api.service=minio-api
+      - traefik.http.services.minio-api.loadbalancer.server.port=9000
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-      # URL pública de la API S3 — necesaria para que los SDKs generen URLs presignadas correctas
+      # URL pública de la API S3 — la consola la usa para autenticar internamente y para presigned URLs.
+      # Requiere que el dominio tenga DNS configurado y cert TLS válido antes del primer login.
       - MINIO_SERVER_URL=https://${MINIO_API_DOMAIN}
       # URL pública de la consola — MinIO redirige aquí cuando se accede al puerto S3 desde un browser
       - MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}
