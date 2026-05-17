@@ -2,7 +2,7 @@
 
 > Guía paso a paso para desplegar Alloy junto al backend.
 > Prerequisito: el stack de observabilidad (Loki, Prometheus, Grafana) debe estar
-> activo. Ver [OBSERVABILIDAD_COOLIFY.md](OBSERVABILIDAD_COOLIFY.md).
+> activo. Ver sección **6. Observability** en [DEPLOY.md](DEPLOY.md).
 
 ---
 
@@ -53,13 +53,13 @@ Alloy lee la configuración desde una ruta fija del host. Debe copiarse antes de
 
 ```bash
 ssh root@<SERVER1_IP> 'mkdir -p /opt/alloy'
-scp infra/coolify/config.alloy root@<SERVER1_IP>:/opt/alloy/config.alloy
+scp coolify/config.alloy root@<SERVER1_IP>:/opt/alloy/config.alloy
 ```
 
 ## 3. Crear el recurso en Coolify
 
 - Buscar y seleccionar el recurso **Docker Compose Empty**.
-- En la vista **Create a new Service**, copiar y pegar el contenido de [`docker-compose-alloy.yml`](../infra/coolify/docker-compose-alloy.yml). En este paso también se pueden editar las variables de entorno directamente en el compose.
+- En la vista **Create a new Service**, copiar y pegar el contenido de [`docker-compose.alloy.yml`](docker-compose.alloy.yml). En este paso también se pueden editar las variables de entorno directamente en el compose.
 - En **Configuration → General**, usar el nombre personalizado `alloy` y guardar.
 - En **Configuration → Environment Variables**, configurar las variables según el escenario si no se hizo en el paso anterior (ver tabla al inicio del documento).
 

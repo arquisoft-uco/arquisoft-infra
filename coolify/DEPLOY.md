@@ -73,25 +73,7 @@ Ver manual completo de configuración e instalación: [MINIO.md](MINIO.md)
 ## 9. Backend
 
 ## 10. Grafana Alloy
-- Agregar label `monitoring=arquisoft-backend` al backend `En Coolify → app del backend → **Configuration → Labels (Custom Labels)**`, si no es posible modificar los label, asegurate de que el campo de check `Readonly labels` esté desmarcado.
-- Hacer **Redeploy** del backend para que el label quede aplicado. Sin este paso,
-Alloy no capturará ningún log.
-- Copiar el archivo [config.alloy](config.alloy) al servidor:
-Alloy lee la configuración desde una ruta fija del host. Debe copiarse antes del
-primer deploy y cada vez que el archivo cambie.
-```bash
-ssh root@<SERVER1_IP> 'mkdir -p /opt/alloy'
-scp infra/coolify/config.alloy root@<SERVER1_IP>:/opt/alloy/config.alloy
-```
-- Buscar y seleccionar el recurso `Docker Compose Empty`.
-- En la vista de `Create a new Service` copiamos y pegamos el contenido del docker compose. **Anexo:** [docker-compose.alloy.yml](docker-compose.alloy.yml). En este paso también podríamos modificar las variables de entorno desde el docker compose.
-- En la vista de `Configuration` en la sección de `General` usamos el siguiente nombre personalizado `alloy` y guardamos.
-- En la vista de `Configuration` en la sección de `Environment Variables` configurar las siguientes variables de entorno si no fueron configuradas desde el docker compose:
-| Variable | Valor |
-|---|---|
-| `LOKI_URL` | `http://<SERVER2_PRIVATE_IP>:3100/loki/api/v1/push` |
-| `PROMETHEUS_URL` | `http://<SERVER2_PRIVATE_IP>:9090/api/v1/write` |
-- Damos clic en `Deploy`, esperamos y confirmamos que el estado del recurso sea `Running (healthy)`.
-- Después del despliegue se pueden asignar límites de recursos y configurar un tuning personalizado para producción.
+
+Ver manual completo de configuración e instalación: [DESPLIEGUE_ALLOY_COOLIFY.md](DESPLIEGUE_ALLOY_COOLIFY.md)
 
 ## 11. Frontend
