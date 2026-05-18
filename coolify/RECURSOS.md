@@ -36,6 +36,7 @@ Configuración de arranque para atender ~200 usuarios activos con carga moderada
 
 | Recurso | Servidor | `replicas` | `limits.cpus` | `reservations.cpus` | `reservations.memory` | `limits.memory` |
 |---------|:--------:|:----------:|:-------------:|:-------------------:|:---------------------:|:---------------:|
+| Coolify (plataforma) ³ | S1 | `1` | `'0.50'` | `'0.10'` | `384M` | `768M` |
 | Traefik ¹ | S1 / S2 | `1` | `'0.50'` | `'0.10'` | `64M` | `128M` |
 | PostgreSQL | S1 | `1` | `'1.00'` | `'0.25'` | `256M` | `512M` |
 | Keycloak | S1 | `1` | `'1.00'` | `'0.25'` | `512M` | `1G` |
@@ -66,6 +67,7 @@ Punto de partida recomendado para producción.
 
 | Recurso | Servidor | `replicas` | `limits.cpus` | `reservations.cpus` | `reservations.memory` | `limits.memory` |
 |---------|:--------:|:----------:|:-------------:|:-------------------:|:---------------------:|:---------------:|
+| Coolify (plataforma) ³ | S1 | `1` | `'1.00'` | `'0.25'` | `512M` | `1G` |
 | Traefik ¹ | S1 / S2 | `1` | `'1.00'` | `'0.20'` | `128M` | `256M` |
 | PostgreSQL | S1 | `1` | `'2.00'` | `'1.00'` | `512M` | `1G` |
 | Keycloak | S1 | `1` | `'2.00'` | `'1.00'` | `768M` | `2G` |
@@ -92,10 +94,11 @@ Punto de partida recomendado para producción.
 ## Tabla 3 — Escalado (>500 usuarios concurrentes)
 
 Configuración para alta disponibilidad con réplicas horizontales en los servicios
-críticos. Los valores de CPU y RAM corresponden a **una sola instancia**. ³
+críticos. Los valores de CPU y RAM corresponden a **una sola instancia**. ⁴
 
 | Recurso | Servidor | `replicas` | `limits.cpus` | `reservations.cpus` | `reservations.memory` | `limits.memory` |
 |---------|:--------:|:----------:|:-------------:|:-------------------:|:---------------------:|:---------------:|
+| Coolify (plataforma) ³ | S1 | `1` | `'1.00'` | `'0.25'` | `512M` | `1G` |
 | Traefik ¹ | S1 / S2 | `1` | `'2.00'` | `'1.00'` | `256M` | `512M` |
 | PostgreSQL | S1 | `1` | `'4.00'` | `'2.00'` | `1G` | `2G` |
 | Keycloak | S1 | `2` | `'2.00'` | `'0.50'` | `1G` | `2G` |
@@ -130,6 +133,12 @@ de la consola de Coolify.
 `keycloak-with-postgres`. Sus límites se configuran en el sub-servicio `postgres`
 dentro de ese mismo recurso en Coolify, no como un servicio PostgreSQL separado.
 
-³ En la Tabla 3 los valores corresponden a **una sola instancia**. El recurso total
-del servidor para servicios con réplicas es `valor × N réplicas`. Ejemplo: Backend
-×2 con `limits.cpus: '2.00'` y `limits.memory: 3G` consume hasta 4 cores y 6 GB en total.
+³ **Coolify (plataforma)** agrupa los servicios internos de Coolify: la aplicación
+principal (Laravel), su base de datos PostgreSQL interna, Redis y el servidor
+WebSocket (Soketi). Estos valores no son configurables individualmente desde la UI
+de Coolify; se ajustan en el `docker-compose.yml` de instalación de Coolify en el host.
+
+⁴ En la Tabla 3 los valores de CPU y RAM corresponden a **una sola instancia**. El
+recurso total del servidor para servicios con réplicas es `valor × N réplicas`.
+Ejemplo: Backend ×2 con `limits.cpus: '2.00'` y `limits.memory: 3G` consume hasta
+4 cores y 6 GB en total.
