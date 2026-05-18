@@ -16,25 +16,46 @@ como proxy inverso local y emite certificados TLS vía Let's Encrypt.
 Todos los servicios de aplicación y datos corren en S1. S2 está dedicado exclusivamente a
 observabilidad para no competir por CPU/RAM con el tráfico de usuarios en momentos de alta carga.
 
-```
-             Internet
-                │
-           HTTPS :443
-                │
-   ┌────────────▼──────────────────────┐
-   │         S1 — Aplicación           │
-   │                                   │
-   │  Coolify   · Traefik              │
-   │  PostgreSQL · Keycloak (+ DB)     │──── SSH :22 ────────────────▶┐
-   │  RabbitMQ  · Redis · MinIO        │                              │
-   │  Backend   · Frontend · Alloy     │──── :3100 :9090 ────────────▶│
-   └───────────────────────────────────┘                              │
-                                                                      ▼
-                                              ┌───────────────────────────────┐
-                                              │    S2 — Observabilidad        │
-                                              │                               │
-                                              │  Loki · Prometheus · Grafana  │
-                                              └───────────────────────────────┘
+```mermaid
+graph LR
+    INET([Internet])
+
+    subgraph S1["S1 — Aplicación · 4 vCPU · 8 GB · 80 GB SSD"]
+        CL(Coolify)
+        TR1(Traefik)
+        PG[(PostgreSQL)]
+        KC[Keycloak]
+        KCDB[(Keycloak DB)]
+        MQ[RabbitMQ]
+        RD[(Redis)]
+        MN[MinIO]
+        BE[Backend]
+        FE[Frontend]
+        AL[Alloy]
+    end
+
+    subgraph S2["S2 — Observabilidad · 2 vCPU · 4 GB · 60 GB SSD"]
+        TR2(Traefik)
+        LK[Loki]
+        PR[Prometheus]
+        GF[Grafana]
+    end
+
+    INET -->|"HTTPS :443"| TR1
+    INET -->|"HTTPS :443"| TR2
+    CL -.->|"SSH :22"| S2
+    AL -->|":3100 logs"| LK
+    AL -->|":9090 métricas"| PR
+
+    classDef db fill:#b5651d,stroke:#8b4513,color:#fff
+    classDef infra fill:#2471a3,stroke:#1a5276,color:#fff
+    classDef app fill:#1e8449,stroke:#196f3d,color:#fff
+    classDef obs fill:#7d3c98,stroke:#6c3483,color:#fff
+
+    class PG,KCDB,RD db
+    class CL,TR1,TR2 infra
+    class KC,MQ,MN,BE,FE,AL app
+    class LK,PR,GF obs
 ```
 
 ### Capacidades de servidores
@@ -81,30 +102,56 @@ Los servicios de datos (PostgreSQL, RabbitMQ, Redis, MinIO) se separan a un serv
 Esto permite escalar o respaldar la capa de datos de forma independiente sin afectar la disponibilidad
 de la aplicación. S1 concentra la lógica de negocio y el enrutamiento.
 
-```
-             Internet
-                │
-           HTTPS :443
-                │
-   ┌────────────▼──────────────────────┐     :5432 (PostgreSQL)    ┌──────────────────────┐
-   │         S1 — Aplicación           │─── :5672 (RabbitMQ AMQP)─▶│    S2 — Datos        │
-   │                                   │─── :6379 (Redis) ─────────▶│                      │
-   │  Coolify   · Traefik              │─── :9000 (MinIO S3 API) ──▶│  PostgreSQL          │
-   │  Keycloak (+ DB)                  │─── SSH :22 ───────────────▶│  RabbitMQ            │
-   │  Backend   · Frontend             │                            │  Redis               │
-   │  Alloy                            │                            │  MinIO · Traefik     │
-   └─────────────────┬─────────────────┘                            └──────────────────────┘
-                     │
-                     │ SSH :22
-                     │ :3100 (Loki push)
-                     │ :9090 (Prometheus write)
-                     ▼
-          ┌─────────────────────────────────┐
-          │       S3 — Observabilidad       │
-          │                                 │
-          │  Loki · Prometheus              │
-          │  Grafana · Traefik              │
-          └─────────────────────────────────┘
+```mermaid
+graph LR
+    INET([Internet])
+
+    subgraph S1["S1 — Aplicación · 8 vCPU · 16 GB · 120 GB SSD"]
+        CL(Coolify)
+        TR1(Traefik)
+        KC[Keycloak]
+        KCDB[(Keycloak DB)]
+        BE[Backend]
+        FE[Frontend]
+        AL[Alloy]
+    end
+
+    subgraph S2["S2 — Datos · 4 vCPU · 8 GB · 80 GB SSD"]
+        TR2(Traefik)
+        PG[(PostgreSQL)]
+        MQ[RabbitMQ]
+        RD[(Redis)]
+        MN[MinIO]
+    end
+
+    subgraph S3["S3 — Observabilidad · 4 vCPU · 8 GB · 80 GB SSD"]
+        TR3(Traefik)
+        LK[Loki]
+        PR[Prometheus]
+        GF[Grafana]
+    end
+
+    INET -->|"HTTPS :443"| TR1
+    INET -->|"HTTPS :443"| TR2
+    INET -->|"HTTPS :443"| TR3
+    CL -.->|"SSH :22"| S2
+    CL -.->|"SSH :22"| S3
+    BE -->|":5432"| PG
+    BE -->|":5672"| MQ
+    BE -->|":6379"| RD
+    BE -->|":9000"| MN
+    AL -->|":3100 logs"| LK
+    AL -->|":9090 métricas"| PR
+
+    classDef db fill:#b5651d,stroke:#8b4513,color:#fff
+    classDef infra fill:#2471a3,stroke:#1a5276,color:#fff
+    classDef app fill:#1e8449,stroke:#196f3d,color:#fff
+    classDef obs fill:#7d3c98,stroke:#6c3483,color:#fff
+
+    class PG,KCDB,RD db
+    class CL,TR1,TR2,TR3 infra
+    class KC,MQ,MN,BE,FE,AL app
+    class LK,PR,GF obs
 ```
 
 ### Capacidades de servidores
@@ -159,31 +206,60 @@ Coolify se aísla en un servidor de gestión dedicado (S1). La capa de aplicaci�
 réplicas horizontales del Backend, Frontend y Keycloak para tolerancia a fallos. S3 concentra toda
 la persistencia. S4 garantiza que la observabilidad no compite con el tráfico de producción.
 
-```
-   ┌──────────────────────┐
-   │    S1 — Gestión      │──── SSH :22 ──────────────────────────────────┐
-   │                      │──── SSH :22 ──────────────────────────────┐   │
-   │  Coolify             │──── SSH :22 ──────────────────────────┐   │   │
-   └──────────────────────┘                                        │   │   │
-                                                                   ▼   ▼   ▼
-             Internet                              ┌──────────────────────────────────────┐
-                │                                  │         S2 — Aplicación              │
-           HTTPS :443                              │                                      │
-                └──────────────────────────────────▶  Traefik                             │
-                                                   │  Backend (×2) · Frontend (×2)       │
-                                                   │  Keycloak (×2) + DB · Alloy         │
-                                                   └──────────┬──────────────────────────┘
-                                                              │
-                                            :5432 :5672       │ SSH :22 (Coolify)
-                                            :6379 :9000       │ :3100 :9090 (Alloy)
-                                                    │         │
-                               ┌────────────────────▼─┐   ┌──▼──────────────────────────┐
-                               │     S3 — Datos        │   │    S4 — Observabilidad      │
-                               │                       │   │                             │
-                               │  PostgreSQL           │   │  Loki · Prometheus          │
-                               │  RabbitMQ · Redis     │   │  Grafana · Traefik          │
-                               │  MinIO · Traefik      │   └─────────────────────────────┘
-                               └───────────────────────┘
+```mermaid
+graph LR
+    INET([Internet])
+
+    subgraph S1["S1 — Gestión · 2 vCPU · 4 GB · 40 GB SSD"]
+        CL(Coolify)
+    end
+
+    subgraph S2["S2 — Aplicación · 16 vCPU · 32 GB · 200 GB SSD NVMe"]
+        TR2(Traefik)
+        KC["Keycloak ×2"]
+        KCDB[(Keycloak DB)]
+        BE["Backend ×2"]
+        FE["Frontend ×2"]
+        AL[Alloy]
+    end
+
+    subgraph S3["S3 — Datos · 8 vCPU · 16 GB · 300 GB SSD NVMe"]
+        TR3(Traefik)
+        PG[(PostgreSQL)]
+        MQ[RabbitMQ]
+        RD[(Redis)]
+        MN[MinIO]
+    end
+
+    subgraph S4["S4 — Observabilidad · 8 vCPU · 16 GB · 120 GB SSD"]
+        TR4(Traefik)
+        LK[Loki]
+        PR[Prometheus]
+        GF[Grafana]
+    end
+
+    INET -->|"HTTPS :443"| TR2
+    INET -->|"HTTPS :443"| TR3
+    INET -->|"HTTPS :443"| TR4
+    CL -.->|"SSH :22"| S2
+    CL -.->|"SSH :22"| S3
+    CL -.->|"SSH :22"| S4
+    BE -->|":5432"| PG
+    BE -->|":5672"| MQ
+    BE -->|":6379"| RD
+    BE -->|":9000"| MN
+    AL -->|":3100 logs"| LK
+    AL -->|":9090 métricas"| PR
+
+    classDef db fill:#b5651d,stroke:#8b4513,color:#fff
+    classDef infra fill:#2471a3,stroke:#1a5276,color:#fff
+    classDef app fill:#1e8449,stroke:#196f3d,color:#fff
+    classDef obs fill:#7d3c98,stroke:#6c3483,color:#fff
+
+    class PG,KCDB,RD db
+    class CL,TR2,TR3,TR4 infra
+    class KC,MQ,MN,BE,FE,AL app
+    class LK,PR,GF obs
 ```
 
 ### Capacidades de servidores
