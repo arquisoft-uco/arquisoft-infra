@@ -3,6 +3,54 @@
 ## 1. Instalación
 Instalación de coolify: https://coolify.io/docs/get-started/installation
 
+### 1.1 Puertos requeridos en el servidor
+
+Antes de instalar Coolify, abrir los siguientes puertos en el firewall del servidor (proveedor cloud o `ufw`):
+
+| Puerto | Protocolo | Uso | Permanente |
+|--------|-----------|-----|------------|
+| 22 | TCP | SSH — acceso al servidor | Sí |
+| 80 | TCP | HTTP — Traefik y validaciones ACME de Let's Encrypt | Sí |
+| 443 | TCP | HTTPS — tráfico seguro de todos los servicios | Sí |
+| 8000 | TCP | Coolify UI — solo para la configuración inicial | No (cerrar tras configurar dominio) |
+
+**Servidores Linux (Ubuntu/Debian) con `ufw`:**
+```
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 8000/tcp
+ufw enable
+```
+
+**Proveedores cloud (AWS, GCP, Azure, Hetzner, Oracle Cloud, etc.):** abrir los mismos puertos desde el panel de administración del proveedor en las reglas de entrada del firewall (Security Groups, Firewall Rules, Network Security Groups o el equivalente según el proveedor). El puerto 8000 debe abrirse solo para la configuración inicial y cerrarse en esas mismas reglas una vez configurado el dominio (ver sección 1.3).
+
+### 1.2 Configurar dominio para acceso seguro a Coolify
+
+Una vez instalado Coolify y accedido por primera vez en `http://<ip-servidor>:8000`:
+
+1. Crear un registro DNS tipo **A** apuntando el subdominio deseado a la IP pública del servidor, por ejemplo `coolify.arquisoft.top` → IP del servidor.
+2. Verificar propagación: `nslookup coolify.arquisoft.top`
+3. En Coolify, ir a **Settings → General** y en el campo `Instance's Domain` ingresar `https://coolify.arquisoft.top`.
+4. Guardar. Coolify solicitará el certificado TLS a Let's Encrypt automáticamente via su instancia de Traefik.
+5. Confirmar que `https://coolify.arquisoft.top` carga correctamente antes de continuar.
+
+### 1.3 Cerrar el puerto 8000
+
+Con el dominio configurado y el acceso HTTPS verificado, cerrar el puerto 8000 para eliminar la exposición del acceso sin cifrado:
+
+**Servidores Linux con `ufw`:**
+```
+ufw delete allow 8000/tcp
+ufw reload
+```
+
+**Proveedores cloud:** eliminar o deshabilitar la regla de entrada del puerto 8000 desde el panel de administración del proveedor (Security Groups, Firewall Rules o equivalente).
+
+Verificar que `http://<ip-servidor>:8000` ya no responde y que `https://coolify.arquisoft.top` sigue accesible.
+
+---
+
 ## 2. Creación Proyecto
 En el menú izquierdo ir a la sección de `Projects` y agregar un nuevo proyecto llamado `arquisoft-project`. Este crea por defecto un `environment` para despliegues en `production`.
 
