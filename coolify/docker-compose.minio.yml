@@ -21,40 +21,32 @@ services:
       - traefik.http.services.minio-console.loadbalancer.server.port=9001
 
       # ── API S3 (puerto 9000) ─────────────────────────────────────────────────
-      # Comentado por defecto: la consola autentica internamente via localhost:9000
-      # (sin MINIO_SERVER_URL), y el backend accede por red Docker interna.
+      # Requerido para presigned URLs: el cliente (browser) accede directamente
+      # a s3.<dominio> para subir/bajar objetos sin pasar por el backend.
+      # También requerido si el backend está en un servidor diferente sin red privada.
       #
-      # Descomentar y configurar MINIO_SERVER_URL en los casos:
-      #   A) Backend en servidor diferente sin red privada compartida
-      #   B) Se necesitan presigned URLs para acceso externo directo a objetos
-      #
-      # También requiere: registro DNS s3.<dominio> → IP del servidor y redeploy
-      # para que Let's Encrypt emita el cert antes de intentar el login.
-      # - "traefik.http.routers.minio-api.rule=Host(`s3.arquisoft.top`)"
-      # - traefik.http.routers.minio-api.entrypoints=https
-      # - traefik.http.routers.minio-api.tls=true
-      # - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
-      # - traefik.http.routers.minio-api.service=minio-api
-      # - traefik.http.services.minio-api.loadbalancer.server.port=9000
+      # Requiere: registro DNS s3.<dominio> → IP del servidor y cert TLS emitido
+      # por Let's Encrypt antes del primer login (esperar 2-3 min tras el redeploy).
+      - "traefik.http.routers.minio-api.rule=Host(`s3.arquisoft.top`)"
+      - traefik.http.routers.minio-api.entrypoints=https
+      - traefik.http.routers.minio-api.tls=true
+      - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.minio-api.service=minio-api
+      - traefik.http.services.minio-api.loadbalancer.server.port=9000
 
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 
       # ── MINIO_SERVER_URL ─────────────────────────────────────────────────────
-      # NO definir cuando el API S3 no está expuesto a internet.
-      # Sin esta variable la consola autentica via localhost:9000 (siempre accesible).
-      #
-      # Definir SOLO si los labels del API S3 están descomentados:
-      #  - MINIO_SERVER_URL=https://${MINIO_API_DOMAIN}
-      #
-      # Advertencia: debe existir cert TLS válido en MINIO_API_DOMAIN antes del
-      # primer login; de lo contrario la consola retorna 503 al intentar autenticar.
+      # Requerido cuando el API S3 está expuesto: la consola usa este URL para
+      # autenticar internamente y MinIO lo embebe en las presigned URLs generadas.
+      # Advertencia: el cert TLS de MINIO_API_DOMAIN debe existir antes del login.
+      - MINIO_SERVER_URL=https://${MINIO_API_DOMAIN}
 
       # ── MINIO_BROWSER_REDIRECT_URL ───────────────────────────────────────────
       # Redirige al browser a la consola cuando accede al puerto S3 vía browser.
-      # Solo relevante si el API S3 está expuesto. Sin efecto cuando está comentado.
-      # - MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}
+      - MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}
 
     volumes:
       - minio-data:/data

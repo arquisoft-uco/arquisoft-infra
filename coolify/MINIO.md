@@ -152,7 +152,7 @@ El archivo Docker Compose para este despliegue se encuentra en:
 
 `coolify/docker-compose.minio.yml`
 
-Este archivo define el servicio `minio` con imagen `pgsty/minio:RELEASE.2026-04-17T00-00-00Z`, configuración de Traefik para dos dominios (API S3 y consola web), healthcheck via `mcli ready local`, volumen de datos persistente, límites de recursos y logging.
+Este archivo define el servicio `minio` con imagen `pgsty/minio:RELEASE.2026-04-17T00-00-00Z`, configuración de Traefik para dos dominios (API S3 y consola web), healthcheck via `mcli ready local`, volumen de datos persistente, límites de recursos y logging. La configuración activa corresponde al **Caso B** (sección 7): API S3 expuesto a internet para soportar presigned URLs.
 
 > **Tag anclado:** La imagen está fijada a `RELEASE.2026-04-17T00-00-00Z`, el último release verificado de `pgsty/minio` al momento de la escritura de este manual (mayo 2026). Para actualizar, consultar las releases en `github.com/pgsty/minio/releases`, ejecutar un nuevo escaneo Trivy sobre el tag candidato, y si el resultado es aceptable, actualizar el tag en el compose y redesplegar desde Coolify.
 
@@ -194,9 +194,11 @@ Ambos deben retornar la IP del servidor. La propagación puede tomar entre 5 min
 
 El compose soporta tres configuraciones según la topología. Las variables requeridas y los labels activos cambian por caso.
 
+> **Configuración activa del proyecto: Caso B.** El backend genera presigned URLs para que los clientes (browser) suban y descarguen objetos directamente a MinIO sin pasar por el backend. Esto requiere que el API S3 (`s3.arquisoft.top`) sea accesible desde internet.
+
 ---
 
-### Caso A — Solo consola web (configuración por defecto)
+### Caso A — Solo consola web
 
 El API S3 no está expuesto a internet. La consola autentica internamente via `localhost:9000`. El backend (si está en el mismo servidor) accede por red Docker interna.
 
@@ -214,10 +216,10 @@ El API S3 no está expuesto a internet. La consola autentica internamente via `l
 
 ---
 
-### Caso B — Consola web + API S3 expuesto (mismo servidor o presigned URLs)
+### Caso B — Consola web + API S3 expuesto ★ configuración activa
 
 Necesario cuando:
-- El backend necesita generar **presigned URLs** para que clientes externos accedan directamente a objetos en MinIO.
+- El backend genera **presigned URLs** para que clientes (browser) suban y descarguen objetos directamente a MinIO sin pasar por el backend. La URL presignada embebe el dominio del API S3 (`s3.arquisoft.top`), por lo que ese endpoint debe ser públicamente accesible para que el cliente pueda usarla.
 - El backend está en un servidor diferente **sin** red privada compartida con MinIO.
 
 **Labels activos:** `minio-console` (puerto 9001) + `minio-api` (puerto 9000) — descomentar los labels de `minio-api` en el compose.
@@ -353,11 +355,11 @@ El backend **no debe usar las credenciales raíz**. Crear un Access Key dedicado
 
 Parámetros de conexión para el SDK Java según el caso de despliegue (ver sección 7):
 
-- **Caso A / C — Backend en el mismo servidor (red Docker `coolify`):** endpoint `http://minio:9000`, TLS deshabilitado. El nombre `minio` resuelve al contenedor dentro de la red Docker. El tráfico no sale del servidor.
+- **Casos A / C — Backend en el mismo servidor (red Docker `coolify`):** endpoint `http://minio:9000`, TLS deshabilitado. El nombre `minio` resuelve al contenedor dentro de la red Docker. El tráfico no sale del servidor.
 
 - **Caso C — Backend en servidor diferente, misma red privada (LAN):** endpoint `http://<ip-privada-servidor-minio>:9000`, TLS deshabilitado. Requiere el binding de puerto en el compose (ver Caso C en sección 7).
 
-- **Caso B — Backend en servidor diferente, sin red privada compartida:** endpoint `https://s3.arquisoft.top`, puerto `443`, TLS habilitado. Requiere los labels `minio-api` descomentados y `MINIO_SERVER_URL` configurado.
+- **Caso B ★ (activo) — API S3 expuesto, presigned URLs:** el backend conecta a `http://minio:9000` (red interna) para operaciones directas, pero las presigned URLs que genera embeben `https://s3.arquisoft.top`. El cliente (browser) usa esas URLs para acceder directamente a MinIO sin pasar por el backend. El SDK se configura con dos endpoints: el interno para operaciones del backend y el público (`https://s3.arquisoft.top`) como base para la generación de presigned URLs.
 
 ---
 
