@@ -80,7 +80,9 @@ services:
       - "traefik.http.routers.keycloak.entrypoints=websecure"
       - "traefik.http.routers.keycloak.tls=true"
       - "traefik.http.routers.keycloak.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.keycloak.middlewares=secure-headers@file"
+      # Sin secure-headers@file: ese middleware fuerza X-Frame-Options: DENY y rompe
+      # los iframes propios de Keycloak (login-status / 3p-cookies). Keycloak gestiona
+      # sus propios headers de seguridad por realm (X-Frame-Options: SAMEORIGIN, CSP, HSTS).
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
     logging:
       driver: json-file
