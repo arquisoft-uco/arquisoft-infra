@@ -1,0 +1,14 @@
+# =============================================================================
+# Componente: rabbitmq — overlay DESARROLLO
+# =============================================================================
+# Expone AMQP y consola de gestión solo al loopback.
+# =============================================================================
+
+services:
+  rabbitmq:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    labels:
+      - "traefik.enable=false"

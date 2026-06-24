@@ -1,0 +1,57 @@
+# =============================================================================
+# Componente: rabbitmq (Message Broker) — PRODUCCIÓN
+# =============================================================================
+# AMQP en :5672 (solo red interna/privada). Consola de gestión en
+# https://rabbitmq.${DOMAIN} protegida con BasicAuth vía Traefik.
+# =============================================================================
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.2.5-management-alpine
+    container_name: arquisoft-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RABBITMQ_USER requerido - ejecutar setup-env.sh}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD requerido - ejecutar setup-env.sh}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-arquisoft}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./config/definitions.json:/etc/rabbitmq/definitions.json:ro
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.${DOMAIN}`)"
+      - "traefik.http.routers.rabbitmq.entrypoints=websecure"
+      - "traefik.http.routers.rabbitmq.tls=true"
+      - "traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.rabbitmq.middlewares=admin-auth@file,secure-headers@file"
+      - "traefik.http.services.rabbitmq.loadbalancer.server.port=15672"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+networks:
+  arquisoft-network:
+    external: true
+
+volumes:
+  rabbitmq-data:
+    name: arquisoft-rabbitmq-data

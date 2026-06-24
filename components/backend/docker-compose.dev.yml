@@ -1,0 +1,21 @@
+# =============================================================================
+# Componente: backend + alloy — overlay DESARROLLO
+# =============================================================================
+# Expone el API al loopback. Perfil dev de Spring.
+# =============================================================================
+
+services:
+  backend:
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "127.0.0.1:8080:8080"
+    labels:
+      - "traefik.enable=false"
+      - "monitoring=arquisoft-backend"
+
+  alloy:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:12345:12345"

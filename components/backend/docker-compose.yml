@@ -1,0 +1,140 @@
+# =============================================================================
+# Componente: backend (Spring Boot) + Grafana Alloy (sidecar) — PRODUCCIÓN
+# =============================================================================
+# La imagen del backend se construye/publica aparte (repo arquisoft-backend).
+# Aquí solo se despliega con su wiring de entorno y su agente Alloy.
+#
+# Los *_HOST por defecto apuntan a los nombres de servicio (single-server).
+# En multi-servidor, sobreescribir con la IP privada del servidor de datos.
+# =============================================================================
+
+services:
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE requerido}:${BACKEND_TAG:-latest}
+    container_name: arquisoft-backend
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+
+      # --- Bases de datos por bounded context ---
+      DB_USUARIOS_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/usuarios
+      DB_FICHAS_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/fichas_perfil
+      DB_PROYECTOS_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/proyectos_grado
+      DB_ARTEFACTOS_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/artefactos
+      DB_REPO_ARTEFACTOS_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/repositorio_artefactos
+      DB_ENTREGABLES_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/entregables
+      DB_EVALUACIONES_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/evaluaciones
+      DB_USUARIOS_USERNAME: ${APP_DB_USER:-arquisoft_user}
+      DB_USUARIOS_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD requerido}
+      DB_FICHAS_USERNAME: ${APP_DB_USER:-arquisoft_user}
+      DB_FICHAS_PASSWORD: ${APP_DB_PASSWORD}
+      DB_PROYECTOS_USERNAME: ${APP_DB_USER:-arquisoft_user}
+      DB_PROYECTOS_PASSWORD: ${APP_DB_PASSWORD}
+      DB_ARTEFACTOS_USERNAME: ${APP_DB_USER:-arquisoft_user}
+      DB_ARTEFACTOS_PASSWORD: ${APP_DB_PASSWORD}
+      DB_REPO_ARTEFACTOS_USERNAME: ${APP_DB_USER:-arquisoft_user}
+      DB_REPO_ARTEFACTOS_PASSWORD: ${APP_DB_PASSWORD}
+      DB_ENTREGABLES_USERNAME: ${APP_DB_USER:-arquisoft_user}
+      DB_ENTREGABLES_PASSWORD: ${APP_DB_PASSWORD}
+      DB_EVALUACIONES_USERNAME: ${APP_DB_USER:-arquisoft_user}
+      DB_EVALUACIONES_PASSWORD: ${APP_DB_PASSWORD}
+
+      # --- Mensajería / caché ---
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_USERNAME: ${RABBITMQ_USER:-arquisoft}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD requerido}
+      SPRING_REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD requerido}
+
+      # --- Identidad ---
+      KEYCLOAK_AUTH_SERVER_URL: http://${KEYCLOAK_HOST:-keycloak}:8080
+      KEYCLOAK_URL: http://${KEYCLOAK_HOST:-keycloak}:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-arquisoft}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-arquisoft-api}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+
+      # --- Object storage ---
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-arquisoft-backend}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY requerido}
+
+      # --- CORS ---
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN:?DOMAIN requerido},https://api.${DOMAIN}
+
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=40.0}
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    labels:
+      # Label que usa Alloy para capturar los logs de este contenedor
+      - "monitoring=arquisoft-backend"
+      # Routing público del API
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend.middlewares=secure-headers@file"
+      - "traefik.http.services.backend.loadbalancer.server.port=8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: arquisoft-alloy
+    restart: always
+    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    environment:
+      LOKI_URL: ${LOKI_URL:-http://loki:3100/loki/api/v1/push}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090/api/v1/write}
+      BACKEND_TARGET: ${BACKEND_TARGET:-arquisoft-backend:8080}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/12345"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 192M
+          cpus: '0.1'
+
+networks:
+  arquisoft-network:
+    external: true
+
+volumes:
+  alloy-data:
+    name: arquisoft-alloy-data

@@ -1,0 +1,36 @@
+# =============================================================================
+# Traefik — Configuración estática (DESARROLLO)
+# =============================================================================
+# Solo HTTP. Dashboard accesible en http://127.0.0.1:8080 (insecure).
+# En dev los servicios se acceden directo por sus puertos 127.0.0.1 (overlays
+# docker-compose.dev.yml); este Traefik es opcional y sirve para probar routing.
+# =============================================================================
+
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+  metrics:
+    address: ":8082"
+
+providers:
+  docker:
+    exposedByDefault: false
+    network: arquisoft-network
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+log:
+  level: INFO
+  format: common
+
+ping:
+  entryPoint: web
+
+metrics:
+  prometheus:
+    entryPoint: metrics

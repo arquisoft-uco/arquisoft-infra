@@ -1,0 +1,103 @@
+// ============================================================
+// Grafana Alloy — agente de observabilidad junto al backend
+// ============================================================
+// Pipeline:
+//   - Logs del backend (Docker socket) -> filtra -> Loki
+//   - Métricas del sistema (node_exporter) -> Prometheus (remote_write)
+//   - Métricas del backend (/actuator/prometheus) -> Prometheus (remote_write)
+//
+// Variables (las pasa docker-compose):
+//   LOKI_URL        ej. http://loki:3100/loki/api/v1/push        (single-server)
+//                       http://<OBS_PRIVATE_IP>:3100/...          (multi-servidor)
+//   PROMETHEUS_URL  ej. http://prometheus:9090/api/v1/write       (single-server)
+//                       http://<OBS_PRIVATE_IP>:9090/...           (multi-servidor)
+//   BACKEND_TARGET  ej. arquisoft-backend:8080                    (host:puerto actuator)
+// ============================================================
+
+// ── LOGS ────────────────────────────────────────────────────────────────────
+
+discovery.docker "contenedores_servidor" {
+	host = "unix:///var/run/docker.sock"
+}
+
+// Mantiene solo contenedores con label Docker monitoring=arquisoft-backend
+// y fija un label "container" estable para las queries en Loki.
+discovery.relabel "docker_metadata" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_container_label_monitoring"]
+		regex         = "arquisoft-backend"
+		action        = "keep"
+	}
+
+	rule {
+		target_label = "container"
+		replacement  = "arquisoft-backend"
+	}
+}
+
+// Parsea el JSON de Spring Boot (perfil prod), promueve level y descarta DEBUG/TRACE.
+loki.process "extract_labels" {
+	forward_to = [loki.write.loki_out.receiver]
+
+	stage.json {
+		expressions = {
+			level   = "level",
+			message = "message",
+			logger  = "logger_name",
+			traceId = "traceId",
+			userId  = "userId",
+		}
+	}
+
+	stage.labels {
+		values = {level = ""}
+	}
+
+	stage.drop {
+		expression          = "\"level\":\"(?:DEBUG|TRACE)\""
+		drop_counter_reason = "debug_trace_noise"
+	}
+}
+
+loki.source.docker "backend_logs" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.contenedores_servidor.targets
+	forward_to    = [loki.process.extract_labels.receiver]
+	relabel_rules = discovery.relabel.docker_metadata.rules
+}
+
+loki.write "loki_out" {
+	endpoint {
+		url = env("LOKI_URL")
+	}
+	external_labels = {
+		job = "arquisoft-backend",
+	}
+}
+
+// ── MÉTRICAS ──────────────────────────────────────────────────────────────────
+
+// Métricas del sistema (CPU, RAM, disco, red)
+prometheus.exporter.unix "node_stats" { }
+
+prometheus.scrape "scrape_node" {
+	targets    = prometheus.exporter.unix.node_stats.targets
+	forward_to = [prometheus.remote_write.prometheus_out.receiver]
+}
+
+// Métricas del backend (Spring Boot Actuator)
+prometheus.scrape "scrape_backend" {
+	targets = [
+		{"__address__" = env("BACKEND_TARGET"), "service" = "arquisoft-backend"},
+	]
+	metrics_path = "/actuator/prometheus"
+	forward_to   = [prometheus.remote_write.prometheus_out.receiver]
+}
+
+prometheus.remote_write "prometheus_out" {
+	endpoint {
+		url = env("PROMETHEUS_URL")
+	}
+}

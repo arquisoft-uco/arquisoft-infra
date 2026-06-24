@@ -1,0 +1,20 @@
+# =============================================================================
+# Componente: proxy (Traefik) — overlay DESARROLLO
+# =============================================================================
+# Solo HTTP. Sin Let's Encrypt. Dashboard en http://127.0.0.1:8080
+# =============================================================================
+
+services:
+  traefik:
+    restart: unless-stopped
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      # Dashboard en 8090 para no chocar con Keycloak dev (8080)
+      - "127.0.0.1:8090:8080"
+    volumes:
+      # Reemplaza la config estática prod por la de dev (mismo target -> override)
+      - ./config/traefik.dev.yml:/etc/traefik/traefik.yml:ro
+    labels:
+      - "traefik.enable=false"
