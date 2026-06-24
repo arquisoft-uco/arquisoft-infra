@@ -86,7 +86,8 @@ prepare_component() {
       # .htpasswd para BasicAuth de consolas admin
       local hash; hash=$(generate_apr1_hash "${ADMIN_AUTH_PASSWORD:-admin}")
       printf '%s:%s\n' "${ADMIN_AUTH_USER:-admin}" "$hash" > "$dir/config/dynamic/.htpasswd"
-      chmod 600 "$dir/config/dynamic/.htpasswd"
+      # Legible por el usuario de Traefik dentro del contenedor (solo es un hash)
+      chmod 644 "$dir/config/dynamic/.htpasswd"
       ;;
     keycloak)
       need_envsubst

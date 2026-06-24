@@ -12,7 +12,7 @@
 
 services:
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.6
     container_name: arquisoft-traefik
     restart: always
     command:
@@ -22,6 +22,8 @@ services:
       - "443:443"
     environment:
       - TZ=${TIMEZONE:-America/Bogota}
+      # Docker Engine moderno (29+) exige API >= 1.44; Traefik usa 1.24 por defecto
+      - DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
