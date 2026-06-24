@@ -11,6 +11,7 @@ arquisoft-infra/
 ├── setup-env.sh         # Genera .env con contraseñas seguras
 ├── backup.sh            # Backup de BDs y MinIO
 ├── restore.sh           # Restauración de backups
+├── firewall.sh          # Hardening de firewall (ufw) por rol de servidor
 ├── .env.example         # Variables (fuente única)
 ├── components/          # Un componente por carpeta (compose + config + README)
 │   ├── proxy/           # Traefik (SSL por labels)
@@ -49,6 +50,7 @@ El backend usa **7 bases de datos por bounded context** (no esquemas):
 
 ## Documentación
 - [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md) — single-server y multi-servidor, firewall, DNS.
+- [docs/FIREWALL.md](docs/FIREWALL.md) — hardening de red por rol de servidor (global).
 - [docs/BACKUP.md](docs/BACKUP.md) y [docs/RESTORE.md](docs/RESTORE.md).
 - README de cada componente en `components/<servicio>/README.md`.
 

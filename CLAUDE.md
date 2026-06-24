@@ -29,6 +29,10 @@ data ports internal/private only).
 # Backup / restore
 ./backup.sh all                       # postgres + keycloak + minio
 ./restore.sh backups/postgres_<ts>.sql.gz
+
+# Firewall (ufw) por rol de servidor — defensa en profundidad
+sudo ./firewall.sh --public                  # servidor con Traefik público
+sudo ./firewall.sh --data-from <ip_priv_app> # servidor de datos
 ```
 
 ## Architecture

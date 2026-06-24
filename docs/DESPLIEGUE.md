@@ -97,14 +97,24 @@ MINIO_ENDPOINT=http://10.0.0.3:9000
 ---
 
 ## 4. Firewall
+Postura por defecto: **denegar todo lo entrante**, abrir solo lo que el rol del servidor
+necesita. Aplicar en **cada servidor** con `firewall.sh` (defensa en profundidad):
+
+```bash
+sudo ./firewall.sh --public                  # servidor con Traefik público (80/443)
+sudo ./firewall.sh --data-from <ip_priv_app> # servidor de datos (5432/5672/6379/9000)
+sudo ./firewall.sh --obs-from  <ip_priv_app> # servidor de observabilidad (3100/9090)
+```
+
 | Puerto | Origen permitido | Uso |
 |:------:|------------------|-----|
 | 80, 443 | Internet | Traefik (HTTP-01 ACME + HTTPS) |
-| 22 | Tu IP de administración | SSH |
+| 22 | IP/red de administración | SSH |
 | 5432, 5672, 6379, 9000 | Solo IP privada del servidor de aplicación | Datos (Postgres, RabbitMQ, Redis, MinIO) |
 | 3100, 9090 | Solo IP privada del servidor de aplicación | Push de Alloy (Loki, Prometheus) |
 
-Nunca exponer los puertos de datos/observabilidad a Internet.
+Nunca exponer los puertos de datos/observabilidad a Internet. Guía completa por rol,
+escenarios multi-servidor y el caveat **Docker + ufw**: [FIREWALL.md](FIREWALL.md).
 
 ---
 
