@@ -32,7 +32,9 @@ services:
       - "traefik.http.routers.rabbitmq.entrypoints=websecure"
       - "traefik.http.routers.rabbitmq.tls=true"
       - "traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.rabbitmq.middlewares=admin-auth@file,secure-headers@file"
+      # RabbitMQ ya autentica en su UI (RABBITMQ_USER/PASSWORD). No se antepone
+      # BasicAuth de Traefik: reenviaría la cabecera Authorization y rompería el login.
+      - "traefik.http.routers.rabbitmq.middlewares=secure-headers@file"
       - "traefik.http.services.rabbitmq.loadbalancer.server.port=15672"
     logging:
       driver: json-file
