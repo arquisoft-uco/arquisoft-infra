@@ -71,6 +71,7 @@ module "keycloak" {
   network_name           = module.network.name
   component_dir          = "${local.components_dir}/keycloak"
   domain                 = var.domain
+  realm_name             = var.keycloak_realm
   admin_user             = var.keycloak_admin_user
   admin_password         = local.secrets["keycloak_admin_password"]
   db_user                = var.keycloak_db_user
@@ -114,9 +115,8 @@ module "backend" {
   component_dir = "${local.components_dir}/backend"
   domain        = var.domain
 
-  image          = var.backend_image
-  tag            = var.backend_tag
-  spring_profile = "prod"
+  image = var.backend_image
+  tag   = var.backend_tag
 
   keycloak_realm         = var.keycloak_realm
   keycloak_client_id     = var.keycloak_client_id

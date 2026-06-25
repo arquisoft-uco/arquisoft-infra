@@ -30,6 +30,11 @@ variable "realm_admin_password" {
   type      = string
   sensitive = true
 }
+variable "realm_name" {
+  description = "Nombre del realm de Keycloak. Debe coincidir con KEYCLOAK_REALM del backend."
+  type        = string
+  default     = "arquisoft"
+}
 variable "client_id" { type = string }
 variable "client_secret" {
   type      = string
@@ -136,6 +141,7 @@ resource "docker_container" "keycloak" {
   upload {
     file = "/opt/keycloak/data/import/realm-arquisoft.json"
     content = templatefile("${var.component_dir}/config/realm-arquisoft.json.template", {
+      KEYCLOAK_REALM            = var.realm_name
       KC_REALM_ADMIN_EMAIL      = var.realm_admin_email
       KC_REALM_ADMIN_FIRST_NAME = var.realm_admin_first_name
       KC_REALM_ADMIN_LAST_NAME  = var.realm_admin_last_name

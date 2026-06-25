@@ -1,5 +1,5 @@
 {
-  "realm": "arquisoft",
+  "realm": "${KEYCLOAK_REALM}",
   "enabled": true,
   "displayName": "Arquisoft - UCO",
   "displayNameHtml": "<div class=\"kc-logo-text\"><span>Arquisoft - UCO</span></div>",
