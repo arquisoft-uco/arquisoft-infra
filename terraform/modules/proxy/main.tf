@@ -58,6 +58,7 @@ resource "docker_container" "traefik" {
   image   = docker_image.traefik.image_id
   restart = "always"
   memory  = 256
+  cpus    = "1.0"
   command = ["--configFile=/etc/traefik/traefik.yml"]
 
   env = [

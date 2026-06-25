@@ -37,6 +37,7 @@ resource "docker_container" "loki" {
   image   = docker_image.loki.image_id
   restart = "always"
   memory  = 1536
+  cpus    = "1.0"
   command = ["-config.file=/etc/loki/loki-config.yaml"]
 
   volumes {
@@ -86,6 +87,7 @@ resource "docker_container" "prometheus" {
   image   = docker_image.prometheus.image_id
   restart = "always"
   memory  = 1024
+  cpus    = "1.0"
   command = [
     "--config.file=/etc/prometheus/prometheus.yml",
     "--storage.tsdb.path=/prometheus",
@@ -158,6 +160,7 @@ resource "docker_container" "grafana" {
   image      = docker_image.grafana.image_id
   restart    = "always"
   memory     = 512
+  cpus       = "0.5"
   depends_on = [docker_container.prometheus, docker_container.loki]
 
   env = [

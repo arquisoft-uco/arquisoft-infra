@@ -43,6 +43,7 @@ resource "docker_container" "frontend" {
   image   = docker_image.frontend.image_id
   restart = "always"
   memory  = 512
+  cpus    = "1.0"
 
   env = ["TZ=${var.timezone}"]
 

@@ -146,6 +146,7 @@ resource "docker_container" "backend" {
   image   = docker_image.backend.image_id
   restart = "always"
   memory  = 2048
+  cpus    = "2.0"
 
   env = local.backend_env
 
@@ -187,6 +188,7 @@ resource "docker_container" "alloy" {
   image   = docker_image.alloy.image_id
   restart = "always"
   memory  = 512
+  cpus    = "0.5"
   command = ["run", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
 
   env = [

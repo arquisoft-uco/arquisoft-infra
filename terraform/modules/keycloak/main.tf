@@ -55,6 +55,7 @@ resource "docker_container" "kc_db" {
   image   = docker_image.kc_db.image_id
   restart = "always"
   memory  = 512
+  cpus    = "1.0"
 
   env = [
     "POSTGRES_USER=${var.db_user}",
@@ -111,6 +112,7 @@ resource "docker_container" "keycloak" {
   image      = docker_image.keycloak.image_id
   restart    = "always"
   memory     = 2048
+  cpus       = "2.0"
   command    = ["start", "--import-realm"]
   depends_on = [docker_container.kc_db]
 

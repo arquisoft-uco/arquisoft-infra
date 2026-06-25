@@ -31,6 +31,7 @@ resource "docker_container" "redis" {
   image   = docker_image.redis.image_id
   restart = "always"
   memory  = 256
+  cpus    = "0.5"
 
   command = ["redis-server", "--requirepass", var.redis_password, "--appendonly", "yes"]
 

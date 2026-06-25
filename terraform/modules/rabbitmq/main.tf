@@ -54,7 +54,8 @@ resource "docker_container" "rabbitmq" {
   name    = "arquisoft-rabbitmq"
   image   = docker_image.rabbitmq.image_id
   restart = "always"
-  memory  = 1024
+  memory  = 512
+  cpus    = "1.0"
 
   env = [
     "RABBITMQ_DEFAULT_USER=${var.rabbitmq_user}",

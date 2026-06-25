@@ -45,6 +45,7 @@ resource "docker_container" "postgres" {
   image   = docker_image.postgres.image_id
   restart = "always"
   memory  = 1024
+  cpus    = "2.0"
 
   env = [
     "POSTGRES_USER=${var.postgres_user}",

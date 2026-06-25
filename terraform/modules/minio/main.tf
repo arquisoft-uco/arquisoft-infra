@@ -59,6 +59,7 @@ resource "docker_container" "minio" {
   image   = docker_image.minio.image_id
   restart = "always"
   memory  = 1024
+  cpus    = "1.0"
 
   command = ["server", "/data", "--console-address", ":9001"]
 
