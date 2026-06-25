@@ -137,19 +137,20 @@ resource "docker_container" "keycloak" {
     "KC_PROXY_HEADERS=xforwarded",
   ]
 
-  # Realm renderizado desde la plantilla (incluye client confidencial arquisoft-api + secret)
+  # Realm renderizado con replace() para compatibilidad con los ${...} internos de Keycloak
+  # (i18n keys como ${role_*}, ${authBaseUrl}, etc.) que templatefile() no puede ignorar.
   upload {
     file = "/opt/keycloak/data/import/realm-arquisoft.json"
-    content = templatefile("${var.component_dir}/config/realm-arquisoft.json.template", {
-      KEYCLOAK_REALM            = var.realm_name
-      KC_REALM_ADMIN_EMAIL      = var.realm_admin_email
-      KC_REALM_ADMIN_FIRST_NAME = var.realm_admin_first_name
-      KC_REALM_ADMIN_LAST_NAME  = var.realm_admin_last_name
-      KC_REALM_ADMIN_PASSWORD   = var.realm_admin_password
-      DOMAIN                    = var.domain
-      KEYCLOAK_CLIENT_ID        = var.client_id
-      KEYCLOAK_CLIENT_SECRET    = var.client_secret
-    })
+    content = replace(replace(replace(replace(replace(replace(replace(replace(
+      file("${var.component_dir}/config/realm-arquisoft.json.template"),
+      "$${KEYCLOAK_REALM}",            var.realm_name),
+      "$${KEYCLOAK_CLIENT_ID}",        var.client_id),
+      "$${KEYCLOAK_CLIENT_SECRET}",    var.client_secret),
+      "$${DOMAIN}",                    var.domain),
+      "$${KC_REALM_ADMIN_EMAIL}",      var.realm_admin_email),
+      "$${KC_REALM_ADMIN_FIRST_NAME}", var.realm_admin_first_name),
+      "$${KC_REALM_ADMIN_LAST_NAME}",  var.realm_admin_last_name),
+      "$${KC_REALM_ADMIN_PASSWORD}",   var.realm_admin_password)
   }
 
   networks_advanced {
