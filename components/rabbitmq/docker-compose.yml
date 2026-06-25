@@ -13,7 +13,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RABBITMQ_USER requerido - ejecutar setup-env.sh}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD requerido - ejecutar setup-env.sh}
-      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-arquisoft}
+      # La imagen del backend usa el vhost por defecto "/" (sin override en application.yml).
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
       - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro

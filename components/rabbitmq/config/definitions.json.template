@@ -1,5 +1,6 @@
 {
   "rabbit_version": "3.13.0",
+  "_comment": "El backend (Spring AMQP, RabbitMQConfig + *QueueConfig) declara su propia topología (exchanges arquisoft.events/arquisoft.dlx, colas y bindings) al arrancar. Aquí solo se aprovisiona el usuario y sus permisos sobre el vhost por defecto '/', que es el que usa la imagen del backend.",
   "users": [
     {
       "name": "${RABBITMQ_USER}",
@@ -9,135 +10,16 @@
   ],
   "vhosts": [
     {
-      "name": "arquisoft"
+      "name": "/"
     }
   ],
   "permissions": [
     {
       "user": "${RABBITMQ_USER}",
-      "vhost": "arquisoft",
+      "vhost": "/",
       "configure": ".*",
       "write": ".*",
       "read": ".*"
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "arquisoft.events",
-      "vhost": "arquisoft",
-      "type": "topic",
-      "durable": true,
-      "auto_delete": false
-    },
-    {
-      "name": "arquisoft.events.dlx",
-      "vhost": "arquisoft",
-      "type": "topic",
-      "durable": true,
-      "auto_delete": false
-    }
-  ],
-  "queues": [
-    {
-      "name": "arquisoft.notificaciones",
-      "vhost": "arquisoft",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-dead-letter-exchange": "arquisoft.events.dlx",
-        "x-dead-letter-routing-key": "notificaciones.dlq"
-      }
-    },
-    {
-      "name": "arquisoft.evaluaciones",
-      "vhost": "arquisoft",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-dead-letter-exchange": "arquisoft.events.dlx",
-        "x-dead-letter-routing-key": "evaluaciones.dlq"
-      }
-    },
-    {
-      "name": "arquisoft.artefactos",
-      "vhost": "arquisoft",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-dead-letter-exchange": "arquisoft.events.dlx",
-        "x-dead-letter-routing-key": "artefactos.dlq"
-      }
-    },
-    {
-      "name": "arquisoft.fichas",
-      "vhost": "arquisoft",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-dead-letter-exchange": "arquisoft.events.dlx",
-        "x-dead-letter-routing-key": "fichas.dlq"
-      }
-    },
-    {
-      "name": "arquisoft.proyectos",
-      "vhost": "arquisoft",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-dead-letter-exchange": "arquisoft.events.dlx",
-        "x-dead-letter-routing-key": "proyectos.dlq"
-      }
-    },
-    {
-      "name": "arquisoft.dlq",
-      "vhost": "arquisoft",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {}
-    }
-  ],
-  "bindings": [
-    {
-      "source": "arquisoft.events",
-      "vhost": "arquisoft",
-      "destination": "arquisoft.notificaciones",
-      "destination_type": "queue",
-      "routing_key": "notificacion.#"
-    },
-    {
-      "source": "arquisoft.events",
-      "vhost": "arquisoft",
-      "destination": "arquisoft.evaluaciones",
-      "destination_type": "queue",
-      "routing_key": "evaluacion.#"
-    },
-    {
-      "source": "arquisoft.events",
-      "vhost": "arquisoft",
-      "destination": "arquisoft.artefactos",
-      "destination_type": "queue",
-      "routing_key": "artefacto.#"
-    },
-    {
-      "source": "arquisoft.events",
-      "vhost": "arquisoft",
-      "destination": "arquisoft.fichas",
-      "destination_type": "queue",
-      "routing_key": "ficha.#"
-    },
-    {
-      "source": "arquisoft.events",
-      "vhost": "arquisoft",
-      "destination": "arquisoft.proyectos",
-      "destination_type": "queue",
-      "routing_key": "proyecto.#"
-    },
-    {
-      "source": "arquisoft.events.dlx",
-      "vhost": "arquisoft",
-      "destination": "arquisoft.dlq",
-      "destination_type": "queue",
-      "routing_key": "#"
     }
   ]
 }

@@ -40,17 +40,21 @@ services:
       DB_EVALUACIONES_PASSWORD: ${APP_DB_PASSWORD}
 
       # --- Mensajería / caché ---
-      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      # La imagen del backend usa el vhost por defecto "/" (fijo en application.yml).
       RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       RABBITMQ_USERNAME: ${RABBITMQ_USER:-arquisoft}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD requerido}
-      SPRING_REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_USER: ${REDIS_USER:-default}
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD requerido}
 
       # --- Identidad ---
-      KEYCLOAK_AUTH_SERVER_URL: http://${KEYCLOAK_HOST:-keycloak}:8080
-      KEYCLOAK_URL: http://${KEYCLOAK_HOST:-keycloak}:8080
+      # El issuer debe coincidir con KC_HOSTNAME de Keycloak (KC_HOSTNAME_STRICT=true):
+      # los tokens llevan iss=https://auth.${DOMAIN}/realms/... → validar contra esa URL.
+      KEYCLOAK_AUTH_SERVER_URL: https://auth.${DOMAIN}
+      KEYCLOAK_URL: https://auth.${DOMAIN}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-arquisoft}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-arquisoft-api}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
@@ -66,12 +70,8 @@ services:
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=40.0}
     networks:
       - arquisoft-network
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 90s
+    # Sin healthcheck propio: la imagen ya define HEALTHCHECK en /api/actuator/health
+    # (el backend sirve bajo context-path /api). Ver Dockerfile de arquisoft-backend.
     labels:
       # Label que usa Alloy para capturar los logs de este contenedor
       - "monitoring=arquisoft-backend"

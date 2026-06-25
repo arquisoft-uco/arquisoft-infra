@@ -92,7 +92,8 @@ prometheus.scrape "scrape_backend" {
 	targets = [
 		{"__address__" = env("BACKEND_TARGET"), "service" = "arquisoft-backend"},
 	]
-	metrics_path = "/actuator/prometheus"
+	// El backend sirve bajo context-path /api → el actuator queda en /api/actuator/*
+	metrics_path = "/api/actuator/prometheus"
 	forward_to   = [prometheus.remote_write.prometheus_out.receiver]
 }
 

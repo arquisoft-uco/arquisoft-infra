@@ -9,6 +9,9 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # En dev no hay TLS público: el issuer apunta al Keycloak interno.
+      KEYCLOAK_URL: http://${KEYCLOAK_HOST:-keycloak}:8080
+      KEYCLOAK_AUTH_SERVER_URL: http://${KEYCLOAK_HOST:-keycloak}:8080
     ports:
       - "127.0.0.1:8080:8080"
     labels:

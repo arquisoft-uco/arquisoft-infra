@@ -89,12 +89,15 @@
       ]
     },
     {
-      "clientId": "arquisoft-backend",
+      "clientId": "${KEYCLOAK_CLIENT_ID}",
       "name": "Arquisoft Backend",
       "description": "API Backend de Arquisoft",
       "enabled": true,
       "publicClient": false,
-      "bearerOnly": true,
+      "secret": "${KEYCLOAK_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
       "protocol": "openid-connect",
       "defaultClientScopes": [
         "web-origins",
