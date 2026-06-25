@@ -10,11 +10,6 @@ terraform {
 variable "network_name" { type = string }
 variable "component_dir" { type = string } # components/observability
 variable "domain" { type = string }
-variable "obs_bind_ip" {
-  description = "IP donde publicar Loki/Prometheus (push de Alloy). Single-server: 127.0.0.1"
-  type        = string
-  default     = "127.0.0.1"
-}
 variable "grafana_admin_user" { type = string }
 variable "grafana_admin_password" {
   type      = string
@@ -47,12 +42,6 @@ resource "docker_container" "loki" {
   upload {
     file    = "/etc/loki/loki-config.yaml"
     content = file("${var.component_dir}/config/loki/loki-config.yaml")
-  }
-
-  ports {
-    internal = 3100
-    external = 3100
-    ip       = var.obs_bind_ip
   }
 
   networks_advanced {
@@ -107,12 +96,6 @@ resource "docker_container" "prometheus" {
   upload {
     file    = "/etc/prometheus/alerts.yml"
     content = file("${var.component_dir}/config/prometheus/alerts.yml")
-  }
-
-  ports {
-    internal = 9090
-    external = 9090
-    ip       = var.obs_bind_ip
   }
 
   networks_advanced {
