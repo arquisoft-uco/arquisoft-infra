@@ -126,3 +126,18 @@ Crear registros **A** hacia la IP del servidor que corre `proxy`:
 
 ## 6. Backup y restauración
 Ver [BACKUP.md](BACKUP.md) y [RESTORE.md](RESTORE.md).
+
+---
+
+## 7. Despliegue con Terraform (alternativa nativa)
+Existe una capa **Terraform** modular que despliega el mismo stack con el provider
+`kreuzwerker/docker`, portable a **servidor propio o VM cloud** (solo cambia `docker_host`),
+con secretos gestionados y estado/idempotencia. Ver [../terraform/README.md](../terraform/README.md).
+
+```bash
+cd terraform && terraform init
+terraform workspace new prod
+terraform apply -var-file=environments/prod.tfvars
+```
+Durante la transición convive con `deploy.sh`/compose (estos quedan como referencia y para
+validar paridad).

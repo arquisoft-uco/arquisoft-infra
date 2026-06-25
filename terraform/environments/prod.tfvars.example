@@ -1,0 +1,34 @@
+# =============================================================================
+# Entorno PROD — VPS propio o VM cloud (Oracle/AWS/Azure/GCP) por SSH
+# Copiar a prod.tfvars y ajustar. Uso:
+#   terraform workspace select prod || terraform workspace new prod
+#   terraform apply -var-file=environments/prod.tfvars
+# =============================================================================
+environment = "prod"
+
+# Destino remoto: el provider Docker habla con el daemon del VPS/VM por SSH.
+# Requisitos: el usuario SSH debe pertenecer al grupo 'docker' en el host.
+docker_host     = "ssh://ubuntu@TU_IP_O_HOST"
+docker_ssh_opts = ["-i", "~/.ssh/arquisoft.key", "-o", "StrictHostKeyChecking=accept-new"]
+
+# Dominio público (registros A → IP del VPS/VM). DNS se gestiona manualmente.
+domain     = "unyai.duckdns.org"
+acme_email = "tu-email@dominio.com"
+
+# Imágenes
+deploy_backend  = true
+backend_image   = "ghcr.io/arquisoft-uco/arquisoft-backend"
+backend_tag     = "sha-f906ef4"
+deploy_frontend = false
+# frontend_image  = "ghcr.io/arquisoft-uco/arquisoft-frontend"
+# frontend_tag    = "latest"
+
+# Firewall del host (ufw vía SSH, reutiliza firewall.sh). Requiere ssh_* abajo.
+enable_server_prep   = false
+ssh_host             = "TU_IP_O_HOST"
+ssh_user             = "ubuntu"
+ssh_private_key_path = "~/.ssh/arquisoft.key"
+
+# Observabilidad: en multi-servidor, apuntar a la IP privada del servidor de obs.
+# loki_url       = "http://10.0.0.2:3100/loki/api/v1/push"
+# prometheus_url = "http://10.0.0.2:9090/api/v1/write"

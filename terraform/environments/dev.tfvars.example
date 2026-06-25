@@ -1,0 +1,26 @@
+# =============================================================================
+# Entorno DEV — Docker local (mismo stack de prod, otro entorno)
+# Copiar a dev.tfvars y ajustar. Uso:
+#   terraform workspace select dev || terraform workspace new dev
+#   terraform apply -var-file=environments/dev.tfvars
+# =============================================================================
+environment = "dev"
+
+# Docker local (socket del host)
+docker_host = "unix:///var/run/docker.sock"
+
+# Dominio del entorno dev (debe resolver al host para que Traefik/LE funcionen).
+# Para pruebas locales sin TLS pública, usar un dominio propio de staging.
+domain     = "dev.arquisoft.example"
+acme_email = "admin@arquisoft.example"
+
+# Imágenes
+deploy_backend  = true
+backend_image   = "ghcr.io/arquisoft-uco/arquisoft-backend"
+backend_tag     = "sha-f906ef4"
+deploy_frontend = false
+# frontend_image  = "ghcr.io/arquisoft-uco/arquisoft-frontend"
+# frontend_tag    = "latest"
+
+# Firewall del host (solo destinos remotos)
+enable_server_prep = false
