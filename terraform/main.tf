@@ -107,6 +107,16 @@ module "proxy" {
   admin_bcrypt  = module.secrets.admin_auth_bcrypt
 }
 
+# ---------- Alloy (agente de observabilidad) ----------
+module "alloy" {
+  source         = "./modules/alloy"
+  network_name   = module.network.name
+  component_dir  = "${local.components_dir}/alloy"
+  loki_url       = var.loki_url
+  prometheus_url = var.prometheus_url
+  backend_target = var.backend_target
+}
+
 # ---------- Preparación de red del servidor (firewall) ----------
 module "server_prep" {
   source               = "./modules/server_prep"

@@ -97,44 +97,7 @@ services:
           memory: 1G
           cpus: '1.0'
 
-  alloy:
-    image: grafana/alloy:v1.5.1
-    container_name: arquisoft-alloy
-    restart: always
-    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
-    environment:
-      LOKI_URL: ${LOKI_URL:-http://loki:3100/loki/api/v1/push}
-      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090/api/v1/write}
-      BACKEND_TARGET: ${BACKEND_TARGET:-arquisoft-backend:8080}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./config/config.alloy:/etc/alloy/config.alloy:ro
-      - alloy-data:/var/lib/alloy/data
-    networks:
-      - arquisoft-network
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/12345"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 192M
-          cpus: '0.1'
-
 networks:
   arquisoft-network:
     external: true
 
-volumes:
-  alloy-data:
-    name: arquisoft-alloy-data

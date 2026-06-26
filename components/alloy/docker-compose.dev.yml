@@ -1,0 +1,12 @@
+# =============================================================================
+# Componente: alloy — overlay DESARROLLO
+# =============================================================================
+# Expone la UI de Alloy a todas las interfaces para inspección desde la
+# máquina del desarrollador (http://<servidor>:12345).
+# =============================================================================
+
+services:
+  alloy:
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:12345:12345"

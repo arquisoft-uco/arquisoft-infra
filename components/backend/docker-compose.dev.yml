@@ -18,7 +18,3 @@ services:
       - "traefik.enable=false"
       - "monitoring=arquisoft-backend"
 
-  alloy:
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:12345:12345"

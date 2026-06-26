@@ -16,10 +16,12 @@
 #   ./deploy.sh prod status              # estado de todos
 #
 # Componentes (orden de dependencias):
-#   proxy postgres redis rabbitmq minio keycloak observability
+#   proxy postgres redis rabbitmq minio keycloak observability alloy
 #
 # Backend y frontend NO se despliegan con este script — se gestionan vía
 # GitHub Actions + SSH usando scripts/redeploy-app.sh.
+# Alloy corre de forma independiente al backend y se reconecta automáticamente
+# al nuevo contenedor del backend tras cada redespliegue.
 # =============================================================================
 set -euo pipefail
 
@@ -30,7 +32,7 @@ source "$ROOT_DIR/scripts/lib/password-generator.sh"
 
 NETWORK="arquisoft-network"
 ENV_FILE="$ROOT_DIR/.env"
-ALL_COMPONENTS=(proxy postgres redis rabbitmq minio keycloak observability)
+ALL_COMPONENTS=(proxy postgres redis rabbitmq minio keycloak observability alloy)
 
 # ---------- Parseo de argumentos ----------
 ENV="${1:-}"; shift || true

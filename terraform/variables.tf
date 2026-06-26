@@ -77,6 +77,23 @@ variable "admin_auth_user" {
   type        = string
 }
 
+# ---------- Observabilidad (multi-servidor) ----------
+variable "loki_url" {
+  description = "URL de push de Loki. En multi-servidor, IP privada del servidor de obs."
+  type        = string
+  default     = "http://loki:3100/loki/api/v1/push"
+}
+variable "prometheus_url" {
+  description = "URL de remote-write de Prometheus. En multi-servidor, IP privada del servidor de obs."
+  type        = string
+  default     = "http://prometheus:9090/api/v1/write"
+}
+variable "backend_target" {
+  description = "Host:puerto del actuator del backend (para scrape de métricas)."
+  type        = string
+  default     = "arquisoft-backend:8080"
+}
+
 # ---------- Secretos provistos externamente (vault-ready) ----------
 # Mapa opcional para inyectar secretos desde un Key Vault en el futuro.
 # Si una clave está presente, el módulo 'secrets' la usa en vez de generar.
