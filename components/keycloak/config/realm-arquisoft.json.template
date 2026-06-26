@@ -647,6 +647,83 @@
       ],
       "realmRoles": ["administrador"],
       "groups": []
+    },
+    {
+      "username": "test.estudiante",
+      "email": "test.estudiante@${DOMAIN}",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "Estudiante",
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": true }],
+      "realmRoles": ["estudiante"],
+      "groups": []
+    },
+    {
+      "username": "test.asesor",
+      "email": "test.asesor@${DOMAIN}",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "Asesor",
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": true }],
+      "realmRoles": ["asesor"],
+      "groups": []
+    },
+    {
+      "username": "test.asesor-ficha",
+      "email": "test.asesor-ficha@${DOMAIN}",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "AsesorFicha",
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": true }],
+      "realmRoles": ["asesor-ficha"],
+      "groups": []
+    },
+    {
+      "username": "test.coordinador",
+      "email": "test.coordinador@${DOMAIN}",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "Coordinador",
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": true }],
+      "realmRoles": ["coordinador"],
+      "groups": []
+    },
+    {
+      "username": "test.jurado",
+      "email": "test.jurado@${DOMAIN}",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "Jurado",
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": true }],
+      "realmRoles": ["jurado"],
+      "groups": []
+    },
+    {
+      "username": "test.bibliotecario",
+      "email": "test.bibliotecario@${DOMAIN}",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "Bibliotecario",
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": true }],
+      "realmRoles": ["bibliotecario"],
+      "groups": []
+    },
+    {
+      "username": "test.representante-comite",
+      "email": "test.representante-comite@${DOMAIN}",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "RepresentanteComite",
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": true }],
+      "realmRoles": ["representante-comite"],
+      "groups": []
     }
   ],
   "scopeMappings": [
