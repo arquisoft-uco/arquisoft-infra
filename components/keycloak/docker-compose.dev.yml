@@ -1,0 +1,20 @@
+# =============================================================================
+# Componente: keycloak — overlay DESARROLLO
+# =============================================================================
+# Modo dev de Keycloak (sin optimización), hostname relajado, puerto al loopback.
+# =============================================================================
+
+services:
+  keycloak-db:
+    restart: unless-stopped
+
+  keycloak:
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME: ""
+    ports:
+      - "127.0.0.1:8080:8080"
+    labels:
+      - "traefik.enable=false"

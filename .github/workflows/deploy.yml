@@ -1,14 +1,14 @@
 # ==============================================================================
 # Arquisoft Infra — Deploy Pipeline
 # ==============================================================================
-# Despliega la aplicación en el servidor on-premise via self-hosted runner
+# Despliega la infraestructura en el servidor on-premise via self-hosted runner
 # Trigger: manual (workflow_dispatch)
 # Runner: Self-hosted (servidor on-premise) — gratis, no consume minutos
 #
 # Prerequisitos:
 #   - Self-hosted runner instalado y corriendo en el servidor
 #   - Docker y Docker Compose disponibles
-#   - Secret ENV_FILE configurado con el contenido del .env
+#   - Secret ENV_FILE con el contenido completo del .env
 # ==============================================================================
 
 name: Deploy
@@ -24,73 +24,48 @@ on:
           - dev
           - prod
         default: dev
-      profile:
-        description: 'Perfil de servicios'
-        required: true
-        type: choice
-        options:
-          - all
-          - core
-          - auth
-        default: all
+      components:
+        description: 'Componentes (separados por espacio). Vacío = todos.'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   deploy:
-    name: Deploy ${{ github.event.inputs.environment }} (${{ github.event.inputs.profile }})
+    name: Deploy ${{ github.event.inputs.environment }}
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: ${{ github.event.inputs.environment }}
     defaults:
       run:
         shell: bash
 
     steps:
-      # ── Checkout ──
       - name: Checkout código
         uses: actions/checkout@v7
 
-      # ── Verificar Docker ──
       - name: Verificar Docker
         run: |
-          echo "=== Docker Info ==="
           docker --version
           docker compose version
-          echo ""
-          echo "=== Disk Space ==="
           df -h / || true
 
-      # ── Login GHCR ──
       - name: Login a GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # ── Generar .env desde Secret ──
-      - name: Crear archivo .env
+      - name: Crear archivo .env desde Secret
         run: |
           echo "${{ secrets.ENV_FILE }}" > .env
           if [ ! -s .env ]; then
             echo "❌ Secret ENV_FILE vacío o no configurado"
             exit 1
           fi
+          chmod 600 .env
           echo "✅ .env generado desde secret ($(wc -l < .env) líneas)"
 
-      # ── Generar archivos de configuración ──
-      - name: Generar archivos de configuración
-        run: |
-          # setup-env.sh es idempotente: mantiene .env existente y genera solo archivos faltantes
-          bash scripts/setup-env.sh ${{ github.event.inputs.environment }}
+      - name: Deploy
+        run: ./deploy.sh ${{ github.event.inputs.environment }} up ${{ github.event.inputs.components }}
 
-      # ── Deploy ──
-      - name: Deploy servicios
-        run: bash scripts/start.sh ${{ github.event.inputs.environment }} ${{ github.event.inputs.profile }}
-
-      # ── Health Check ──
-      - name: Health check
-        run: |
-          echo "Esperando 30s para que los servicios inicien..."
-          sleep 30
-          bash scripts/health-check.sh || true
-
-      # ── Status ──
       - name: Estado de servicios
         if: always()
-        run: docker compose -f docker-compose.yaml -f docker-compose.core.yaml ps || true
+        run: ./deploy.sh ${{ github.event.inputs.environment }} status || true

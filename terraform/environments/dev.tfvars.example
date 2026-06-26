@@ -1,0 +1,39 @@
+# =============================================================================
+# Entorno DEV — Docker local (mismo stack de prod, otro entorno)
+# Copiar a dev.tfvars y ajustar. Uso:
+#   terraform workspace select dev || terraform workspace new dev
+#   terraform apply -var-file=environments/dev.tfvars
+# =============================================================================
+environment = "dev"
+
+# Docker local (socket del host)
+docker_host = "unix:///var/run/docker.sock"
+
+# Dominio del entorno dev (debe resolver al host para que Traefik/LE funcionen).
+# Para pruebas locales sin TLS pública, usar un dominio propio de staging.
+domain     = "dev.arquisoft.example"
+acme_email = "admin@arquisoft.example"
+
+# Exponer puertos de datos directamente (true en dev para que los devs se conecten desde su máquina)
+expose_data_ports = true
+
+# Firewall del host (solo destinos remotos)
+enable_server_prep = false
+
+# ---------- Usuarios / credenciales ----------
+# Requeridos: sin defaults en el código para no exponerlos en el repo.
+# A futuro pueden inyectarse vía TF_VAR_* desde un Key Vault en el pipeline CI/CD.
+postgres_user       = "postgres"
+postgres_db         = "postgres"
+app_db_user         = "arquisoft_user"
+keycloak_admin_user = "admin"
+keycloak_db_user    = "keycloak"
+keycloak_db_name    = "keycloak"
+keycloak_realm      = "arquisoft"
+keycloak_client_id  = "arquisoft-api"
+rabbitmq_user       = "arquisoft"
+rabbitmq_vhost      = "/"
+minio_root_user     = "arquisoft"
+minio_access_key    = "arquisoft-backend"
+grafana_admin_user  = "admin"
+admin_auth_user     = "admin"

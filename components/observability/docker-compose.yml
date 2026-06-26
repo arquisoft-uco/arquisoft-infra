@@ -1,0 +1,138 @@
+# =============================================================================
+# Componente: observability (Loki + Prometheus + Grafana) — PRODUCCIÓN
+# =============================================================================
+# Recibe logs (Loki) y métricas (Prometheus remote-write) que empuja Grafana
+# Alloy desde el servidor de aplicación. Grafana se expone en grafana.${DOMAIN}.
+# En multi-servidor este stack vive en el servidor de observabilidad.
+# =============================================================================
+
+services:
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: arquisoft-loki
+    restart: always
+    command: -config.file=/etc/loki/loki-config.yaml
+    ports:
+      # Push de logs desde Alloy. Default loopback; en multi-servidor fijar
+      # OBS_BIND_IP a la IP privada del servidor de observabilidad.
+      - "${OBS_BIND_IP:-127.0.0.1}:3100:3100"
+    volumes:
+      - loki-data:/loki
+      - ./config/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: arquisoft-prometheus
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+    ports:
+      # Remote-write desde Alloy. Default loopback; en multi-servidor fijar OBS_BIND_IP.
+      - "${OBS_BIND_IP:-127.0.0.1}:9090:9090"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 384M
+          cpus: '0.25'
+
+  grafana:
+    image: grafana/grafana:11.5.0
+    container_name: arquisoft-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER requerido - ejecutar setup-env.sh}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD requerido - ejecutar setup-env.sh}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: https://grafana.${DOMAIN:?DOMAIN requerido}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - arquisoft-network
+    depends_on:
+      - prometheus
+      - loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.grafana.middlewares=secure-headers@file"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+networks:
+  arquisoft-network:
+    external: true
+
+volumes:
+  loki-data:
+    name: arquisoft-loki-data
+  prometheus-data:
+    name: arquisoft-prometheus-data
+  grafana-data:
+    name: arquisoft-grafana-data

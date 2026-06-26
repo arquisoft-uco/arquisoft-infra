@@ -1,0 +1,19 @@
+# =============================================================================
+# Componente: minio — overlay DESARROLLO
+# =============================================================================
+# Expone API S3 y consola a todas las interfaces para que el desarrollador se
+# conecte desde su máquina. Sin URLs HTTPS (acceso directo por IP/puerto).
+# Alineado con expose_data_ports=true del entorno dev en Terraform.
+# =============================================================================
+
+services:
+  minio:
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:9000:9000"
+      - "0.0.0.0:9001:9001"
+    environment:
+      MINIO_SERVER_URL: ""
+      MINIO_BROWSER_REDIRECT_URL: ""
+    labels:
+      - "traefik.enable=false"
