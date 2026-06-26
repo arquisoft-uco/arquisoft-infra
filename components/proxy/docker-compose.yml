@@ -1,0 +1,79 @@
+# =============================================================================
+# Componente: proxy (Traefik) — PRODUCCIÓN
+# =============================================================================
+# Reverse proxy con SSL automático Let's Encrypt. El routing de cada servicio
+# se declara por LABELS de Docker (ver cada componente). Este archivo solo
+# levanta Traefik, los entrypoints y el resolver ACME.
+#
+# Standalone:
+#   docker network create arquisoft-network   # si no existe
+#   docker compose --env-file ../../.env up -d
+# =============================================================================
+
+services:
+  traefik:
+    image: traefik:v3.6
+    container_name: arquisoft-traefik
+    restart: always
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - TZ=${TIMEZONE:-America/Bogota}
+      # Docker Engine moderno (29+) exige API >= 1.44; Traefik usa 1.24 por defecto
+      - DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/dynamic:/etc/traefik/dynamic:ro
+      - traefik-letsencrypt:/letsencrypt
+      - traefik-logs:/var/log/traefik
+    networks:
+      - arquisoft-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=admin-auth@file,secure-headers@file"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.2'
+
+networks:
+  arquisoft-network:
+    external: true
+
+volumes:
+  traefik-letsencrypt:
+    name: arquisoft-traefik-letsencrypt
+  traefik-logs:
+    name: arquisoft-traefik-logs

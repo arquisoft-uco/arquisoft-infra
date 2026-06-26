@@ -1,0 +1,46 @@
+# =============================================================================
+# Componente: redis (caché / rate-limiting) — PRODUCCIÓN
+# =============================================================================
+# Solo red interna. Lo consume el backend (sesiones, caché, rate limiting).
+# No se expone a Internet.
+# =============================================================================
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: arquisoft-redis
+    restart: always
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD requerido - ejecutar setup-env.sh}", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+networks:
+  arquisoft-network:
+    external: true
+
+volumes:
+  redis-data:
+    name: arquisoft-redis-data

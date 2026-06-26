@@ -1,0 +1,47 @@
+# =============================================================================
+# Componente: frontend — PRODUCCIÓN
+# =============================================================================
+# La imagen del frontend se construye/publica aparte (repo arquisoft-frontend).
+# Se expone en la raíz del dominio: https://${DOMAIN}
+# =============================================================================
+
+services:
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE requerido}:${FRONTEND_TAG:-latest}
+    container_name: arquisoft-frontend
+    restart: always
+    environment:
+      TZ: ${TIMEZONE:-America/Bogota}
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:${FRONTEND_PORT:-80}/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend.middlewares=secure-headers@file"
+      - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT:-80}"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+networks:
+  arquisoft-network:
+    external: true

@@ -1,0 +1,107 @@
+# =============================================================================
+# Componente: keycloak (Identity Provider) — PRODUCCIÓN
+# =============================================================================
+# Keycloak con BASE DE DATOS DEDICADA (keycloak-db). No comparte el PostgreSQL
+# de la aplicación. Expuesto en https://auth.${DOMAIN} vía Traefik (labels).
+# =============================================================================
+
+services:
+  keycloak-db:
+    image: postgres:18-alpine
+    container_name: arquisoft-keycloak-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD requerido - ejecutar setup-env.sh}
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME:-keycloak}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - arquisoft-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6
+    container_name: arquisoft-keycloak
+    restart: always
+    command: start --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN requerido - ejecutar setup-env.sh}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD requerido - ejecutar setup-env.sh}
+
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KEYCLOAK_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD requerido}
+
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
+      KC_HOSTNAME: https://auth.${DOMAIN:?DOMAIN requerido}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+    volumes:
+      - ./config/realm-arquisoft.json:/opt/keycloak/data/import/realm-arquisoft.json:ro
+    networks:
+      - arquisoft-network
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000;echo -e \"GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n\" >&3;cat <&3 | grep -q '\"status\": \"UP\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.${DOMAIN}`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+      - "traefik.http.routers.keycloak.tls.certresolver=letsencrypt"
+      # Sin secure-headers@file: ese middleware fuerza X-Frame-Options: DENY y rompe
+      # los iframes propios de Keycloak (login-status / 3p-cookies). Keycloak gestiona
+      # sus propios headers de seguridad por realm (X-Frame-Options: SAMEORIGIN, CSP, HSTS).
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 768M
+          cpus: '1.0'
+
+networks:
+  arquisoft-network:
+    external: true
+
+volumes:
+  keycloak-db-data:
+    name: arquisoft-keycloak-db-data

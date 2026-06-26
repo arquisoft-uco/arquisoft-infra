@@ -4,114 +4,106 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Repo Does
 
-Infrastructure-as-code for the Arquisoft platform using modular Docker Compose. Manages PostgreSQL, RabbitMQ, MinIO, Keycloak, Prometheus, Loki, Grafana, and Traefik. Two deployment environments: `dev` (HTTP, localhost ports exposed) and `prod` (HTTPS via Let's Encrypt, all ports internal).
+Infrastructure-as-code for the Arquisoft platform, **independent of Coolify**. Each service
+lives in its own folder under `components/` and is deployed standalone or together via
+`deploy.sh`. Traefik manages **automatic SSL** (Let's Encrypt) through Docker labels.
+Supports **single-server and multi-server** deployments (own servers or VPS).
+
+Two environments: `dev` (HTTP, ports bound to `127.0.0.1`) and `prod` (HTTPS via Let's Encrypt,
+data ports internal/private only).
 
 ## Key Commands
 
-### First-time setup
 ```bash
-# Generate .env and supporting config files (idempotent — safe to re-run)
-./scripts/setup-env.sh dev        # or prod
+# 1. Generate .env (idempotent: won't overwrite; delete .env to regenerate)
+./setup-env.sh dev
+./setup-env.sh prod arquisoft.top admin@arquisoft.top
 
-# To regenerate a specific file: delete it, then re-run setup-env.sh
-rm .env && ./scripts/setup-env.sh prod
-```
+# 2. Deploy
+./deploy.sh dev                       # all infra, local HTTP
+./deploy.sh prod                      # all, HTTPS
+./deploy.sh prod up postgres redis    # subset / single component
+./deploy.sh prod status
+./deploy.sh prod down keycloak
 
-### Start / Stop
-```bash
-./scripts/start.sh dev            # All services, dev mode
-./scripts/start.sh dev core       # Only PostgreSQL, RabbitMQ, MinIO
-./scripts/start.sh dev auth       # Core + Keycloak
-./scripts/start.sh prod           # All services, prod mode (requires DOMAIN + ACME_EMAIL)
+# Backup / restore
+./backup.sh all                       # postgres + keycloak + minio
+./restore.sh backups/postgres_<ts>.sql.gz
 
-./scripts/stop.sh [dev|prod]
-./scripts/stop.sh dev --volumes   # Also destroys data volumes (destructive)
-./scripts/stop.sh dev --prune     # Also prunes unused Docker resources
-```
-
-### Validation & Health
-```bash
-./scripts/validate-dev.sh               # Checks all dev acceptance criteria
-./scripts/validate-dev.sh --persistence # Also tests volume persistence (restarts containers)
-./scripts/validate-prod.sh              # DNS, SSL, HTTPS, security headers, resource limits
-./scripts/health-check.sh              # Quick HTTP + TCP service health snapshot
-```
-
-### Manual docker compose (equivalent to start.sh)
-```bash
-docker compose \
-  -f docker-compose.yaml \
-  -f docker-compose.core.yaml \
-  -f docker-compose.auth.yaml \
-  -f docker-compose.observability.yaml \
-  -f docker-compose.proxy.yaml \
-  -f docker-compose.dev.yaml \
-  up -d
+# Firewall (ufw) por rol de servidor — defensa en profundidad
+sudo ./firewall.sh --public                  # servidor con Traefik público
+sudo ./firewall.sh --data-from <ip_priv_app> # servidor de datos
 ```
 
 ## Architecture
 
-### Compose File Layering
+### Component folders (`components/<svc>/`)
+Each component is self-contained and independently deployable:
+- `docker-compose.yml` — base, **production-ready** (resource limits from `coolify/RECURSOS.md`
+  Tabla 2, `restart: always`, healthcheck, Traefik TLS labels, json logging).
+- `docker-compose.dev.yml` — dev overlay (exposes `127.0.0.1` ports, disables TLS labels).
+- `config/` — service config and `.template` files.
+- `.env.example`, `README.md`.
 
-`docker-compose.yaml` is the mandatory base (defines the shared `arquisoft-network` bridge and all named volumes). Every `docker compose` invocation must include it first.
+Components (deploy order): `proxy postgres redis rabbitmq minio keycloak observability backend frontend`.
 
-The remaining files are stacked on top:
+### Shared network
+All components join the external Docker network **`arquisoft-network`** (created by `deploy.sh`).
+- Single-server: services talk by service name (`postgres`, `redis`, …).
+- Multi-server: cross-server addresses come from env vars with local defaults
+  (`POSTGRES_HOST`, `RABBITMQ_HOST`, `REDIS_HOST`, `KEYCLOAK_HOST`, `MINIO_ENDPOINT`,
+  `LOKI_URL`, `PROMETHEUS_URL`, `OBS_BIND_IP`). Each public-facing server runs its own `proxy`.
 
-| File | Purpose |
-|------|---------|
-| `docker-compose.core.yaml` | PostgreSQL, RabbitMQ, MinIO |
-| `docker-compose.auth.yaml` | Keycloak |
-| `docker-compose.observability.yaml` | Prometheus, Loki, Grafana |
-| `docker-compose.proxy.yaml` | Traefik dev (HTTP only) |
-| `docker-compose.proxy-prod.yaml` | Traefik prod (Let's Encrypt SSL) |
-| `docker-compose.dev.yaml` | Dev overrides (exposes ports to 127.0.0.1) |
-| `docker-compose.prod.yaml` | Prod overrides (resource limits, no exposed ports) |
+### Traefik (SSL by labels)
+`components/proxy/` only defines entrypoints (`web`→`websecure`), the ACME resolver, and
+reusable file middlewares (`secure-headers@file`, `admin-auth@file`). Every exposed service
+declares its own router/TLS via Docker labels. There is **no central routing file** to edit.
 
-### Template → Generated Files
+### Database model (source of truth: `arquisoft-backend/init-db.sql`)
+The backend uses **7 databases per bounded context** (NOT schemas), owned by `arquisoft_user`:
+`usuarios`, `fichas_perfil`, `artefactos`, `repositorio_artefactos`, `proyectos_grado`,
+`entregables`, `evaluaciones`. Created by `components/postgres/init/01-init-databases.sh` on
+first volume creation. The Keycloak DB is **dedicated** (`components/keycloak/keycloak-db`),
+not in the app PostgreSQL.
 
-`start.sh` uses `envsubst` (falls back to `sed`) to expand these templates at startup:
+### Observability
+**No Promtail.** `components/backend` runs **Grafana Alloy** as a sidecar: it ships the
+backend container logs to Loki and pushes metrics (node_exporter + `/actuator/prometheus`) to
+Prometheus via remote-write. Prometheus runs with `--web.enable-remote-write-receiver`.
 
-| Template | Generated |
-|----------|-----------|
-| `configs/traefik/dynamic.yaml.template` | `configs/traefik/dynamic/dynamic.yaml` |
-| `configs/traefik/traefik-prod.yaml.template` | `configs/traefik/traefik-prod.yaml` |
-| `configs/rabbitmq/definitions.json.template` | `configs/rabbitmq/definitions.json` |
-| `configs/keycloak/realm-arquisoft.json.template` | `configs/keycloak/realm-arquisoft.json` |
+### Template → Generated files (by `deploy.sh prepare_component`)
+| Template | Generated | Vars |
+|----------|-----------|------|
+| `components/proxy/config/traefik.yml.template` | `…/traefik.yml` (prod) | `ACME_EMAIL` |
+| `components/keycloak/config/realm-arquisoft.json.template` | `…/realm-arquisoft.json` | `KC_REALM_ADMIN_*`, `DOMAIN` |
+| `components/rabbitmq/config/definitions.json.template` | `…/definitions.json` | `RABBITMQ_USER/PASSWORD` |
+| (generated) | `components/proxy/config/dynamic/.htpasswd` | `ADMIN_AUTH_USER/PASSWORD` |
 
 Generated files are gitignored. Never edit them directly — edit the `.template` source.
 
-### Shared Script Library (`scripts/lib/`)
+### Shared script library (`scripts/lib/`)
+`common.sh` (logging, health/HTTP/header checks), `password-generator.sh` (secure passwords,
+apr1/bcrypt hashes), `env-config.sh` (`get_env_var`, `set_env_var`).
 
-All scripts source from `scripts/lib/`:
-- `common.sh` — color output helpers (`log_success`, `log_error`, `log_warning`), `check_container_health`, `check_http_status`, `check_security_headers`, `print_summary`, `escape_sed`
-- `env-config.sh` — `get_env_var`, `set_env_var`, `uncomment_env_var`
-- `password-generator.sh` — secure random password generation
-- `prometheus-config.sh` — generates `configs/prometheus/web.yml` (BasicAuth for prod)
-- `traefik-config.sh` — generates `configs/traefik/certs/.htpasswd`
-
-### PostgreSQL Schema Design
-
-`configs/postgres/init.sql` runs once on first container creation. It creates:
-- 10 bounded-context schemas: `usuarios`, `fichas_perfil`, `proyectos_grado`, `artefactos`, `evaluaciones`, `mapa_ruta`, `repositorio_artefactos`, `solicitudes`, `biblioteca`, `entregables`
-- 1 technical schema: `keycloak` (used by Keycloak when it shares the database)
-- Extensions: `uuid-ossp`, `pg_trgm`
-- Global `audit_log` table in the `public` schema with a reusable trigger function
-
-### Prometheus Scraping
-
-Prometheus scrapes `host.docker.internal:8080/actuator/prometheus` for the backend application. This target resolves to the Docker host, so the backend can run outside the compose network during development. Other scrape targets (RabbitMQ, MinIO, Keycloak, Traefik, Loki) use internal Docker service names.
-
-## CI/CD
-
-Single workflow: `.github/workflows/deploy.yml` — manual trigger only (`workflow_dispatch`). Runs on a self-hosted runner (on-premise server). Requires the `ENV_FILE` repository secret to contain the full `.env` content. Inputs: `environment` (dev|prod) and `profile` (all|core|auth).
+### Images (aligned with `arquisoft-backend`)
+`postgres:18-alpine`, `rabbitmq:4.2.5-management-alpine`, `redis:7-alpine`,
+`pgsty/minio:RELEASE.2026-04-17`, `quay.io/keycloak/keycloak:26.6`, `traefik:v3.3`,
+`grafana/alloy:v1.5.1`, `grafana/loki:3.3.2`, `prom/prometheus:v3.1.0`, `grafana/grafana:11.5.0`.
 
 ## Environment Variables
+Single source of truth: root `.env` (from `.env.example`, generated by `setup-env.sh`).
+`deploy.sh` passes it to every component via `--env-file`. Each component also ships a small
+`.env.example` documenting only its own variables.
 
-Copy `.env.example` to `.env` (or run `setup-env.sh`). Required variables:
-- `DOMAIN` — `arquisoft.localhost` for dev, real domain for prod
-- `ACME_EMAIL` — required only for prod (Let's Encrypt registration)
-- All `*_PASSWORD` fields — auto-generated by `setup-env.sh` if not set
+Required for prod: `DOMAIN`, `ACME_EMAIL`. For `backend`/`frontend`: `BACKEND_IMAGE`,
+`FRONTEND_IMAGE` (deploy skips them if empty). All `*_PASSWORD`/`*_SECRET*` auto-generated.
 
-Prod-only files generated by `setup-env.sh`:
-- `configs/prometheus/web.yml` — enables BasicAuth on Prometheus endpoints
-- `configs/traefik/certs/.htpasswd` — BasicAuth for admin consoles (MinIO, Traefik dashboard)
+## Instrucciones para Claude Code
+
+- **Nunca incluir `Co-Authored-By:` en los commits.** Los mensajes de commit deben contener solo el título y cuerpo. Sin líneas de co-autoría.
+- **Nunca crear commits de forma automática.** Siempre pedir confirmación explícita al usuario antes de ejecutar `git commit`.
+
+## Legacy
+`coolify/` keeps the previous Coolify deployment guides and the architecture/resource sizing
+references (`ARQUITECTURA_DESPLIEGUE.md`, `RECURSOS.md`) — useful for server planning; ignore
+the Coolify-specific steps.

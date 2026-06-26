@@ -1,0 +1,44 @@
+# =============================================================================
+# Entorno PROD — VPS propio o VM cloud (Oracle/AWS/Azure/GCP) por SSH
+# Copiar a prod.tfvars y ajustar. Uso:
+#   terraform workspace select prod || terraform workspace new prod
+#   terraform apply -var-file=environments/prod.tfvars
+# =============================================================================
+environment = "prod"
+
+# Destino remoto: el provider Docker habla con el daemon del VPS/VM por SSH.
+# Requisitos: el usuario SSH debe pertenecer al grupo 'docker' en el host.
+docker_host     = "ssh://ubuntu@TU_IP_O_HOST"
+docker_ssh_opts = ["-i", "~/.ssh/arquisoft.key", "-o", "StrictHostKeyChecking=accept-new"]
+
+# Dominio público (registros A → IP del VPS/VM). DNS se gestiona manualmente.
+domain     = "unyai.duckdns.org"
+acme_email = "tu-email@dominio.com"
+
+# Firewall del host (ufw vía SSH, reutiliza firewall.sh). Requiere ssh_* abajo.
+enable_server_prep   = false
+ssh_host             = "TU_IP_O_HOST"
+ssh_user             = "ubuntu"
+ssh_private_key_path = "~/.ssh/arquisoft.key"
+
+# Observabilidad: en multi-servidor, apuntar a la IP privada del servidor de obs.
+# loki_url       = "http://10.0.0.2:3100/loki/api/v1/push"
+# prometheus_url = "http://10.0.0.2:9090/api/v1/write"
+
+# ---------- Usuarios / credenciales ----------
+# Requeridos: sin defaults en el código para no exponerlos en el repo.
+# A futuro pueden inyectarse vía TF_VAR_* desde un Key Vault en el pipeline CI/CD.
+postgres_user       = "postgres"
+postgres_db         = "postgres"
+app_db_user         = "arquisoft_user"
+keycloak_admin_user = "admin"
+keycloak_db_user    = "keycloak"
+keycloak_db_name    = "keycloak"
+keycloak_realm      = "arquisoft"
+keycloak_client_id  = "arquisoft-api"
+rabbitmq_user       = "arquisoft"
+rabbitmq_vhost      = "/"
+minio_root_user     = "arquisoft"
+minio_access_key    = "arquisoft-backend"
+grafana_admin_user  = "admin"
+admin_auth_user     = "admin"

@@ -1,0 +1,28 @@
+# Grafana Datasources Provisioning
+# =================================
+apiVersion: 1
+
+datasources:
+  # Prometheus — métricas (scrape local + remote_write de Alloy)
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+
+  # Loki — logs (push de Grafana Alloy)
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: "traceId=(\\w+)"
+          url: "${__value.raw}"

@@ -1,0 +1,15 @@
+# Terraform
+.terraform/
+# NOTA: .terraform.lock.hcl SÍ se versiona (fija versiones de providers).
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Variables reales (pueden contener host/IP/credenciales). Versionar solo *.example
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

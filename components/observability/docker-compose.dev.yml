@@ -1,0 +1,24 @@
+# =============================================================================
+# Componente: observability — overlay DESARROLLO
+# =============================================================================
+# Expone Grafana al loopback y permite acceso anónimo de solo lectura.
+# Loki/Prometheus ya publican 3100/9090 en 127.0.0.1 (OBS_BIND_IP por defecto).
+# =============================================================================
+
+services:
+  loki:
+    restart: unless-stopped
+
+  prometheus:
+    restart: unless-stopped
+
+  grafana:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    labels:
+      - "traefik.enable=false"

@@ -1,0 +1,102 @@
+# =============================================================================
+# Componente: minio (Object Storage S3) — PRODUCCIÓN
+# =============================================================================
+# Fork comunitario activo pgsty/minio (AGPL). Expone:
+#   - Consola web  -> https://minio.${DOMAIN}
+#   - API S3        -> https://s3.${DOMAIN}   (requerido para presigned URLs)
+# =============================================================================
+
+services:
+  minio:
+    image: pgsty/minio:RELEASE.2026-04-17T00-00-00Z
+    container_name: arquisoft-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requerido - ejecutar setup-env.sh}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requerido - ejecutar setup-env.sh}
+      # URL pública del API S3 (la consola lo usa y se embebe en las presigned URLs)
+      MINIO_SERVER_URL: https://s3.${DOMAIN:?DOMAIN requerido}
+      MINIO_BROWSER_REDIRECT_URL: https://minio.${DOMAIN}
+      TZ: ${TIMEZONE:-America/Bogota}
+    volumes:
+      - minio-data:/data
+    networks:
+      - arquisoft-network
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "mcli", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      # Consola (puerto 9001)
+      - "traefik.http.routers.minio-console.rule=Host(`minio.${DOMAIN}`)"
+      - "traefik.http.routers.minio-console.entrypoints=websecure"
+      - "traefik.http.routers.minio-console.tls=true"
+      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.minio-console.service=minio-console"
+      - "traefik.http.routers.minio-console.middlewares=secure-headers@file"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+      # API S3 (puerto 9000)
+      - "traefik.http.routers.minio-api.rule=Host(`s3.${DOMAIN}`)"
+      - "traefik.http.routers.minio-api.entrypoints=websecure"
+      - "traefik.http.routers.minio-api.tls=true"
+      - "traefik.http.routers.minio-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.minio-api.service=minio-api"
+      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Crea buckets iniciales y la cuenta de servicio del backend (corre una vez)
+  minio-init:
+    image: pgsty/minio:RELEASE.2026-04-17T00-00-00Z
+    container_name: arquisoft-minio-init
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      BACKEND_S3_ACCESS_KEY: ${MINIO_ACCESS_KEY:-}
+      BACKEND_S3_SECRET_KEY: ${MINIO_SECRET_KEY:-}
+    entrypoint: >
+      /bin/sh -c "
+      set -e;
+      mcli alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      mcli mb --ignore-existing local/artefactos;
+      mcli mb --ignore-existing local/avatars;
+      mcli mb --ignore-existing local/backups;
+      mcli anonymous set download local/avatars;
+      if [ -n \"$${BACKEND_S3_ACCESS_KEY}\" ] && [ -n \"$${BACKEND_S3_SECRET_KEY}\" ]; then
+        mcli admin user add local $${BACKEND_S3_ACCESS_KEY} $${BACKEND_S3_SECRET_KEY} || true;
+        mcli admin policy attach local readwrite --user $${BACKEND_S3_ACCESS_KEY} || true;
+        echo 'Cuenta de servicio del backend lista';
+      fi;
+      echo 'Buckets inicializados';
+      "
+    networks:
+      - arquisoft-network
+
+networks:
+  arquisoft-network:
+    external: true
+
+volumes:
+  minio-data:
+    name: arquisoft-minio-data
