@@ -77,10 +77,6 @@ module "keycloak" {
   db_user                = var.keycloak_db_user
   db_name                = var.keycloak_db_name
   db_password            = local.secrets["keycloak_db_password"]
-  realm_admin_email      = var.kc_realm_admin_email
-  realm_admin_first_name = var.kc_realm_admin_first_name
-  realm_admin_last_name  = var.kc_realm_admin_last_name
-  realm_admin_password   = local.secrets["kc_realm_admin_password"]
   client_id              = var.keycloak_client_id
   client_secret          = local.secrets["keycloak_client_secret"]
 }

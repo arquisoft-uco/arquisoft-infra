@@ -632,23 +632,6 @@
       "groups": []
     },
     {
-      "username": "${KC_REALM_ADMIN_EMAIL}",
-      "email": "${KC_REALM_ADMIN_EMAIL}",
-      "emailVerified": true,
-      "enabled": true,
-      "firstName": "${KC_REALM_ADMIN_FIRST_NAME}",
-      "lastName": "${KC_REALM_ADMIN_LAST_NAME}",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "${KC_REALM_ADMIN_PASSWORD}",
-          "temporary": true
-        }
-      ],
-      "realmRoles": [],
-      "groups": []
-    },
-    {
       "username": "test.administrador",
       "email": "test.administrador@${DOMAIN}",
       "emailVerified": true,

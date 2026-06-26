@@ -109,19 +109,6 @@ variable "keycloak_client_id" {
   type    = string
   default = "arquisoft-api"
 }
-variable "kc_realm_admin_email" {
-  type    = string
-  default = "admin@uco.edu.co"
-}
-variable "kc_realm_admin_first_name" {
-  type    = string
-  default = "Admin"
-}
-variable "kc_realm_admin_last_name" {
-  type    = string
-  default = "Sistema"
-}
-
 variable "rabbitmq_user" {
   type    = string
   default = "arquisoft"

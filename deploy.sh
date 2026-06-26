@@ -91,7 +91,7 @@ prepare_component() {
       ;;
     keycloak)
       need_envsubst
-      envsubst '${KEYCLOAK_REALM} ${KC_REALM_ADMIN_EMAIL} ${KC_REALM_ADMIN_FIRST_NAME} ${KC_REALM_ADMIN_LAST_NAME} ${KC_REALM_ADMIN_PASSWORD} ${DOMAIN} ${KEYCLOAK_CLIENT_ID} ${KEYCLOAK_CLIENT_SECRET}' \
+      envsubst '${KEYCLOAK_REALM} ${DOMAIN} ${KEYCLOAK_CLIENT_ID} ${KEYCLOAK_CLIENT_SECRET}' \
         < "$dir/config/realm-arquisoft.json.template" > "$dir/config/realm-arquisoft.json"
       ;;
     rabbitmq)

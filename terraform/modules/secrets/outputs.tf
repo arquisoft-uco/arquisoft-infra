@@ -3,7 +3,6 @@ output "values" {
   description = "Mapa nombre→secreto (sensible)"
   value = merge(
     { for k, r in random_password.this : k => lookup(var.provided_secrets, k, r.result) },
-    { kc_realm_admin_password = lookup(var.provided_secrets, "kc_realm_admin_password", random_password.kc_realm_admin.result) },
   )
   sensitive = true
 }

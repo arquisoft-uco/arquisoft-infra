@@ -31,16 +31,3 @@ resource "random_password" "this" {
   length  = 32
   special = false # alfanumérico: evita romper URLs JDBC / cadenas de conexión
 }
-
-# Password del usuario semilla del realm: debe cumplir la passwordPolicy de Keycloak
-# (length(8) specialChars(1) digits(1) upperCase(1)). Usa un set acotado de especiales
-# seguros en JSON/shell (sin comillas/backslash).
-resource "random_password" "kc_realm_admin" {
-  length           = 20
-  special          = true
-  override_special = "!#%*-_=+"
-  min_special      = 1
-  min_upper        = 1
-  min_numeric      = 1
-  min_lower        = 1
-}
