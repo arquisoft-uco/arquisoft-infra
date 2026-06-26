@@ -33,7 +33,7 @@ MINIO_VOLUME="${MINIO_VOLUME:-arquisoft-minio-data}"
 backup_postgres() {
   local out="$BACKUP_DIR/postgres_${TS}.sql.gz"
   log_info "Backup PostgreSQL (app, 7 BDs) desde $PG_CONTAINER..."
-  docker exec -t "$PG_CONTAINER" pg_dumpall -U "${POSTGRES_USER:-postgres}" | gzip > "$out"
+  docker exec -t "$PG_CONTAINER" pg_dumpall --clean --if-exists -U "${POSTGRES_USER:-postgres}" | gzip > "$out"
   log_success "PostgreSQL -> $out ($(du -h "$out" | cut -f1))"
 }
 
@@ -41,7 +41,7 @@ backup_keycloak() {
   local out="$BACKUP_DIR/keycloak_${TS}.sql.gz"
   log_info "Backup Keycloak DB desde $KC_DB_CONTAINER..."
   docker exec -t "$KC_DB_CONTAINER" \
-    pg_dump -U "${KEYCLOAK_DB_USER:-keycloak}" -d "${KEYCLOAK_DB_NAME:-keycloak}" | gzip > "$out"
+    pg_dump --clean --if-exists -U "${KEYCLOAK_DB_USER:-keycloak}" -d "${KEYCLOAK_DB_NAME:-keycloak}" | gzip > "$out"
   log_success "Keycloak DB -> $out ($(du -h "$out" | cut -f1))"
 }
 
