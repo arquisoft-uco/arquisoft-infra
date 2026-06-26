@@ -75,69 +75,30 @@ variable "frontend_tag" {
   default = "latest"
 }
 
-# ---------- Usuarios / identificadores (no secretos) ----------
-variable "postgres_user" {
-  type    = string
-  default = "postgres"
-}
-variable "postgres_db" {
-  type    = string
-  default = "postgres"
-}
-variable "app_db_user" {
-  type    = string
-  default = "arquisoft_user"
-}
-
-variable "keycloak_admin_user" {
-  type    = string
-  default = "admin"
-}
-variable "keycloak_db_user" {
-  type    = string
-  default = "keycloak"
-}
-variable "keycloak_db_name" {
-  type    = string
-  default = "keycloak"
-}
-variable "keycloak_realm" {
-  type    = string
-  default = "arquisoft"
-}
-variable "keycloak_client_id" {
-  type    = string
-  default = "arquisoft-api"
-}
-variable "rabbitmq_user" {
-  type    = string
-  default = "arquisoft"
-}
+# ---------- Usuarios / identificadores ----------
+# Sin defaults: los valores van en prod.tfvars (gitignoreado) para no exponerlos en el repo.
+variable "postgres_user"      { type = string }
+variable "postgres_db"        { type = string }
+variable "app_db_user"        { type = string }
+variable "keycloak_admin_user" { type = string }
+variable "keycloak_db_user"   { type = string }
+variable "keycloak_db_name"   { type = string }
+variable "keycloak_realm"     { type = string }
+variable "keycloak_client_id" { type = string }
+variable "rabbitmq_user"      { type = string }
 variable "rabbitmq_vhost" {
   description = "vhost de RabbitMQ. La imagen del backend usa el vhost por defecto '/'."
   type        = string
-  default     = "/"
 }
-
-variable "minio_root_user" {
-  type    = string
-  default = "arquisoft"
-}
+variable "minio_root_user"    { type = string }
 variable "minio_access_key" {
   description = "Access key de la cuenta de servicio del backend en MinIO"
   type        = string
-  default     = "arquisoft-backend"
 }
-
-variable "grafana_admin_user" {
-  type    = string
-  default = "admin"
-}
-
+variable "grafana_admin_user" { type = string }
 variable "admin_auth_user" {
   description = "Usuario de BasicAuth para consolas admin (Traefik dashboard, etc.)"
   type        = string
-  default     = "admin"
 }
 
 # ---------- Observabilidad (multi-servidor) ----------
@@ -158,9 +119,8 @@ variable "backend_target" {
 # Mapa opcional para inyectar secretos desde un Key Vault en el futuro.
 # Si una clave está presente, el módulo 'secrets' la usa en vez de generar.
 # Claves: postgres_password, app_db_password, keycloak_admin_password,
-# keycloak_db_password, kc_realm_admin_password, keycloak_client_secret,
-# rabbitmq_password, redis_password, minio_root_password, minio_secret_key,
-# grafana_admin_password, admin_auth_password
+# keycloak_db_password, keycloak_client_secret, rabbitmq_password, redis_password,
+# minio_root_password, minio_secret_key, grafana_admin_password, admin_auth_password
 variable "provided_secrets" {
   description = "Secretos provistos externamente (Key Vault). Vacío = generar con random_password."
   type        = map(string)

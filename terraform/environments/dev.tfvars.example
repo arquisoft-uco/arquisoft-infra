@@ -24,3 +24,21 @@ deploy_frontend = false
 
 # Firewall del host (solo destinos remotos)
 enable_server_prep = false
+
+# ---------- Usuarios / credenciales ----------
+# Requeridos: sin defaults en el código para no exponerlos en el repo.
+# A futuro pueden inyectarse vía TF_VAR_* desde un Key Vault en el pipeline CI/CD.
+postgres_user       = "postgres"
+postgres_db         = "postgres"
+app_db_user         = "arquisoft_user"
+keycloak_admin_user = "admin"
+keycloak_db_user    = "keycloak"
+keycloak_db_name    = "keycloak"
+keycloak_realm      = "arquisoft"
+keycloak_client_id  = "arquisoft-api"
+rabbitmq_user       = "arquisoft"
+rabbitmq_vhost      = "/"
+minio_root_user     = "arquisoft"
+minio_access_key    = "arquisoft-backend"
+grafana_admin_user  = "admin"
+admin_auth_user     = "admin"
