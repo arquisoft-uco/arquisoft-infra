@@ -649,6 +649,17 @@
       "groups": []
     },
     {
+      "username": "test.administrador",
+      "email": "test.administrador@${DOMAIN}",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "Administrador",
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": true }],
+      "realmRoles": ["administrador"],
+      "groups": []
+    },
+    {
       "username": "test.estudiante",
       "email": "test.estudiante@${DOMAIN}",
       "emailVerified": true,
