@@ -101,6 +101,7 @@ Required for prod: `DOMAIN`, `ACME_EMAIL`. For `backend`/`frontend`: `BACKEND_IM
 ## Instrucciones para Claude Code
 
 - **Nunca incluir `Co-Authored-By:` en los commits.** Los mensajes de commit deben contener solo el título y cuerpo. Sin líneas de co-autoría.
+- **Nunca crear commits de forma automática.** Siempre pedir confirmación explícita al usuario antes de ejecutar `git commit`.
 
 ## Legacy
 `coolify/` keeps the previous Coolify deployment guides and the architecture/resource sizing

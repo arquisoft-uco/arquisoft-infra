@@ -645,7 +645,7 @@
           "temporary": true
         }
       ],
-      "realmRoles": ["administrador"],
+      "realmRoles": [],
       "groups": []
     },
     {
