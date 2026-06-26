@@ -1,8 +1,12 @@
 # =============================================================================
 # Componente: redis — overlay DESARROLLO
 # =============================================================================
+# Expone el puerto a todas las interfaces para que el desarrollador se conecte
+# desde su máquina. Alineado con expose_data_ports=true del entorno dev en Terraform.
+# =============================================================================
+
 services:
   redis:
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6379:6379"
+      - "0.0.0.0:6379:6379"

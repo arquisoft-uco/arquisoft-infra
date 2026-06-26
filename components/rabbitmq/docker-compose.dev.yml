@@ -1,14 +1,16 @@
 # =============================================================================
 # Componente: rabbitmq — overlay DESARROLLO
 # =============================================================================
-# Expone AMQP y consola de gestión solo al loopback.
+# Expone AMQP y consola de gestión a todas las interfaces para que el
+# desarrollador se conecte desde su máquina. Deshabilita Traefik (sin TLS en
+# dev). Alineado con expose_data_ports=true del entorno dev en Terraform.
 # =============================================================================
 
 services:
   rabbitmq:
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
+      - "0.0.0.0:5672:5672"
+      - "0.0.0.0:15672:15672"
     labels:
       - "traefik.enable=false"

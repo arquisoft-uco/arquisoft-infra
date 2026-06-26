@@ -1,13 +1,15 @@
 # =============================================================================
 # Componente: postgres — overlay DESARROLLO
 # =============================================================================
-# Expone el puerto solo al loopback para herramientas locales (psql, DBeaver).
+# Expone el puerto a todas las interfaces para que el desarrollador se conecte
+# desde su máquina (DBeaver, psql, etc.). Alineado con expose_data_ports=true
+# del entorno dev en Terraform.
 # =============================================================================
 
 services:
   postgres:
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5432:5432"
+      - "0.0.0.0:5432:5432"
     environment:
       POSTGRES_LOG_STATEMENT: all

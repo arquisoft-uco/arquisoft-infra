@@ -16,7 +16,10 @@
 #   ./deploy.sh prod status              # estado de todos
 #
 # Componentes (orden de dependencias):
-#   proxy postgres redis rabbitmq minio keycloak observability backend frontend
+#   proxy postgres redis rabbitmq minio keycloak observability
+#
+# Backend y frontend NO se despliegan con este script — se gestionan vía
+# GitHub Actions + SSH usando scripts/redeploy-app.sh.
 # =============================================================================
 set -euo pipefail
 
@@ -27,7 +30,7 @@ source "$ROOT_DIR/scripts/lib/password-generator.sh"
 
 NETWORK="arquisoft-network"
 ENV_FILE="$ROOT_DIR/.env"
-ALL_COMPONENTS=(proxy postgres redis rabbitmq minio keycloak observability backend frontend)
+ALL_COMPONENTS=(proxy postgres redis rabbitmq minio keycloak observability)
 
 # ---------- Parseo de argumentos ----------
 ENV="${1:-}"; shift || true
@@ -52,11 +55,8 @@ fi
 # ---------- Selección de componentes por defecto ----------
 if [[ ${#COMPONENTS[@]} -eq 0 ]]; then
   for c in "${ALL_COMPONENTS[@]}"; do
-    # En dev el proxy es opcional (acceso por puertos 127.0.0.1)
+    # En dev el proxy es opcional (los servicios de datos exponen puertos directamente)
     [[ "$ENV" == "dev" && "$c" == "proxy" ]] && continue
-    # backend/frontend solo si su imagen está configurada
-    [[ "$c" == "backend"  && -z "${BACKEND_IMAGE:-}"  ]] && { log_warning "backend omitido (BACKEND_IMAGE vacío)"; continue; }
-    [[ "$c" == "frontend" && -z "${FRONTEND_IMAGE:-}" ]] && { log_warning "frontend omitido (FRONTEND_IMAGE vacío)"; continue; }
     COMPONENTS+=("$c")
   done
 fi
