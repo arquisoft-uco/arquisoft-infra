@@ -23,6 +23,11 @@ variable "rabbitmq_password" {
   sensitive = true
 }
 variable "rabbitmq_vhost" { type = string }
+variable "expose_ports" {
+  description = "Exponer puertos 5672 (AMQP) y 15672 (UI) directamente en el host (solo dev)"
+  type        = bool
+  default     = false
+}
 
 locals {
   # Consola de administración (UI) publicada vía Traefik en rabbitmq.${domain} (puerto 15672)
@@ -79,6 +84,17 @@ resource "docker_container" "rabbitmq" {
       RABBITMQ_USER     = var.rabbitmq_user
       RABBITMQ_PASSWORD = var.rabbitmq_password
     })
+  }
+
+  dynamic "ports" {
+    for_each = var.expose_ports ? [
+      { internal = 5672,  external = 5672  },
+      { internal = 15672, external = 15672 },
+    ] : []
+    content {
+      internal = ports.value.internal
+      external = ports.value.external
+    }
   }
 
   networks_advanced {

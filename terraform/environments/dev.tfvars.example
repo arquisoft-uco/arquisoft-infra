@@ -14,13 +14,8 @@ docker_host = "unix:///var/run/docker.sock"
 domain     = "dev.arquisoft.example"
 acme_email = "admin@arquisoft.example"
 
-# Imágenes
-deploy_backend  = true
-backend_image   = "ghcr.io/arquisoft-uco/arquisoft-backend"
-backend_tag     = "sha-f906ef4"
-deploy_frontend = false
-# frontend_image  = "ghcr.io/arquisoft-uco/arquisoft-frontend"
-# frontend_tag    = "latest"
+# Exponer puertos de datos directamente (true en dev para que los devs se conecten desde su máquina)
+expose_data_ports = true
 
 # Firewall del host (solo destinos remotos)
 enable_server_prep = false

@@ -12,6 +12,11 @@ variable "redis_password" {
   type      = string
   sensitive = true
 }
+variable "expose_ports" {
+  description = "Exponer puerto 6379 directamente en el host (solo dev)"
+  type        = bool
+  default     = false
+}
 
 resource "docker_image" "redis" {
   name         = "redis:7-alpine"
@@ -41,6 +46,14 @@ resource "docker_container" "redis" {
   volumes {
     volume_name    = docker_volume.data.name
     container_path = "/data"
+  }
+
+  dynamic "ports" {
+    for_each = var.expose_ports ? [1] : []
+    content {
+      internal = 6379
+      external = 6379
+    }
   }
 
   networks_advanced {

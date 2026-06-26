@@ -20,6 +20,11 @@ variable "minio_secret_key" {
   type      = string
   sensitive = true
 }
+variable "expose_ports" {
+  description = "Exponer puertos 9000 (API S3) y 9001 (consola) directamente en el host (solo dev)"
+  type        = bool
+  default     = false
+}
 
 locals {
   image = "pgsty/minio:RELEASE.2026-04-17T00-00-00Z"
@@ -76,6 +81,17 @@ resource "docker_container" "minio" {
   volumes {
     volume_name    = docker_volume.data.name
     container_path = "/data"
+  }
+
+  dynamic "ports" {
+    for_each = var.expose_ports ? [
+      { internal = 9000, external = 9000 },
+      { internal = 9001, external = 9001 },
+    ] : []
+    content {
+      internal = ports.value.internal
+      external = ports.value.external
+    }
   }
 
   networks_advanced {

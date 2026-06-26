@@ -23,6 +23,11 @@ variable "app_db_password" {
   type      = string
   sensitive = true
 }
+variable "expose_ports" {
+  description = "Exponer puerto 5432 directamente en el host (solo dev)"
+  type        = bool
+  default     = false
+}
 
 resource "docker_image" "postgres" {
   name         = "postgres:18-alpine"
@@ -66,6 +71,14 @@ resource "docker_container" "postgres" {
     file       = "/docker-entrypoint-initdb.d/01-init-databases.sh"
     content    = file("${var.component_dir}/init/01-init-databases.sh")
     executable = true
+  }
+
+  dynamic "ports" {
+    for_each = var.expose_ports ? [1] : []
+    content {
+      internal = 5432
+      external = 5432
+    }
   }
 
   networks_advanced {

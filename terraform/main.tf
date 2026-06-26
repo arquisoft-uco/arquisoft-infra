@@ -36,12 +36,14 @@ module "postgres" {
   postgres_password = local.secrets["postgres_password"]
   app_db_user       = var.app_db_user
   app_db_password   = local.secrets["app_db_password"]
+  expose_ports      = var.expose_data_ports
 }
 
 module "redis" {
   source         = "./modules/redis"
   network_name   = module.network.name
   redis_password = local.secrets["redis_password"]
+  expose_ports   = var.expose_data_ports
 }
 
 module "rabbitmq" {
@@ -52,6 +54,7 @@ module "rabbitmq" {
   rabbitmq_user     = var.rabbitmq_user
   rabbitmq_password = local.secrets["rabbitmq_password"]
   rabbitmq_vhost    = var.rabbitmq_vhost
+  expose_ports      = var.expose_data_ports
 }
 
 module "minio" {
@@ -63,6 +66,7 @@ module "minio" {
   minio_root_password = local.secrets["minio_root_password"]
   minio_access_key    = var.minio_access_key
   minio_secret_key    = local.secrets["minio_secret_key"]
+  expose_ports        = var.expose_data_ports
 }
 
 # ---------- Identidad ----------
@@ -101,45 +105,6 @@ module "proxy" {
   timezone      = var.timezone
   admin_user    = var.admin_auth_user
   admin_bcrypt  = module.secrets.admin_auth_bcrypt
-}
-
-# ---------- Backend (+ Alloy) ----------
-module "backend" {
-  source        = "./modules/backend"
-  count         = var.deploy_backend ? 1 : 0
-  network_name  = module.network.name
-  component_dir = "${local.components_dir}/backend"
-  domain        = var.domain
-
-  image = var.backend_image
-  tag   = var.backend_tag
-
-  keycloak_realm         = var.keycloak_realm
-  keycloak_client_id     = var.keycloak_client_id
-  keycloak_client_secret = local.secrets["keycloak_client_secret"]
-
-  app_db_user       = var.app_db_user
-  app_db_password   = local.secrets["app_db_password"]
-  rabbitmq_user     = var.rabbitmq_user
-  rabbitmq_password = local.secrets["rabbitmq_password"]
-  redis_password    = local.secrets["redis_password"]
-  minio_access_key  = var.minio_access_key
-  minio_secret_key  = local.secrets["minio_secret_key"]
-
-  loki_url       = var.loki_url
-  prometheus_url = var.prometheus_url
-  backend_target = var.backend_target
-}
-
-# ---------- Frontend ----------
-module "frontend" {
-  source       = "./modules/frontend"
-  count        = var.deploy_frontend && var.frontend_image != "" ? 1 : 0
-  network_name = module.network.name
-  domain       = var.domain
-  timezone     = var.timezone
-  image        = var.frontend_image
-  tag          = var.frontend_tag
 }
 
 # ---------- Preparación de red del servidor (firewall) ----------

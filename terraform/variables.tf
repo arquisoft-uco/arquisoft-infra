@@ -39,14 +39,8 @@ variable "timezone" {
 }
 
 # ---------- Toggles de despliegue ----------
-variable "deploy_backend" {
-  description = "Desplegar el backend (+ Alloy). Requiere backend_image."
-  type        = bool
-  default     = true
-}
-
-variable "deploy_frontend" {
-  description = "Desplegar el frontend. Requiere frontend_image."
+variable "expose_data_ports" {
+  description = "Exponer puertos de datos directamente en el host (dev: true, prod: false)"
   type        = bool
   default     = false
 }
@@ -55,24 +49,6 @@ variable "enable_server_prep" {
   description = "Aplicar firewall del host (ufw) vía SSH antes de desplegar (solo destinos remotos)"
   type        = bool
   default     = false
-}
-
-# ---------- Imágenes externas ----------
-variable "backend_image" {
-  type    = string
-  default = "ghcr.io/arquisoft-uco/arquisoft-backend"
-}
-variable "backend_tag" {
-  type    = string
-  default = "sha-f906ef4"
-}
-variable "frontend_image" {
-  type    = string
-  default = ""
-}
-variable "frontend_tag" {
-  type    = string
-  default = "latest"
 }
 
 # ---------- Usuarios / identificadores ----------
@@ -99,20 +75,6 @@ variable "grafana_admin_user" { type = string }
 variable "admin_auth_user" {
   description = "Usuario de BasicAuth para consolas admin (Traefik dashboard, etc.)"
   type        = string
-}
-
-# ---------- Observabilidad (multi-servidor) ----------
-variable "loki_url" {
-  type    = string
-  default = "http://loki:3100/loki/api/v1/push"
-}
-variable "prometheus_url" {
-  type    = string
-  default = "http://prometheus:9090/api/v1/write"
-}
-variable "backend_target" {
-  type    = string
-  default = "arquisoft-backend:8080"
 }
 
 # ---------- Secretos provistos externamente (vault-ready) ----------
