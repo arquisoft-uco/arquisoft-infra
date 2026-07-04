@@ -13,6 +13,7 @@ locals {
 module "network" {
   source = "./modules/network"
   name   = local.network_name
+  subnet = var.docker_subnet
 }
 
 module "secrets" {
@@ -37,6 +38,8 @@ module "postgres" {
   app_db_user       = var.app_db_user
   app_db_password   = local.secrets["app_db_password"]
   expose_ports      = var.expose_data_ports
+  # IP estática (endpoint fijo para DBeaver vía VPN): .10 dentro del subnet de servicios
+  static_ip         = var.docker_subnet == null ? null : cidrhost(var.docker_subnet, 10)
 }
 
 module "redis" {

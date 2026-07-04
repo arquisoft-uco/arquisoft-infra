@@ -51,6 +51,12 @@ variable "expose_vpn_port" {
   default     = true
 }
 
+variable "docker_subnet" {
+  description = "Subnet explícita de arquisoft-network. Alinear al supernet VPN 172.16.0.0/16 (ej. 172.16.1.0/24 = nodo 1) para acceso a servicios vía VPN. null = pool por defecto de Docker."
+  type        = string
+  default     = null
+}
+
 variable "enable_server_prep" {
   description = "Aplicar firewall del host (ufw) vía SSH antes de desplegar (solo destinos remotos)"
   type        = bool
