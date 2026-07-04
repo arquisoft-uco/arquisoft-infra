@@ -117,6 +117,19 @@ module "alloy" {
   backend_target = var.backend_target
 }
 
+# ---------- VPN (WireGuard) — Acceso seguro a infraestructura ----------
+module "wireguard" {
+  source             = "./modules/wireguard"
+  network_name       = module.network.name
+  domain             = var.domain
+  wireguard_port     = var.wireguard_port
+  wireguard_subnet   = var.wireguard_subnet
+  timezone           = var.timezone
+  expose_vpn_port    = var.expose_data_ports  # dev: 127.0.0.1, prod: 0.0.0.0
+  peers              = var.wireguard_peers
+  max_clients        = var.wireguard_max_clients
+}
+
 # ---------- Preparación de red del servidor (firewall) ----------
 module "server_prep" {
   source               = "./modules/server_prep"

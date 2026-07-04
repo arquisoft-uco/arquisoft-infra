@@ -1,0 +1,24 @@
+# =============================================================================
+# WireGuard — overlay para desarrollo local (HTTP)
+# =============================================================================
+# Cambios:
+# - Puerto expuesto en localhost (127.0.0.1:51820) para testing local
+# - Límites de recursos más laxos para testing
+# =============================================================================
+
+services:
+  wireguard:
+    mem_limit: 512m
+    memory_reservation: 256m
+    cpus: "1.0"
+
+    # Puerto VPN en localhost (para testing local)
+    ports:
+      - "127.0.0.1:${WIREGUARD_PORT:-51820}:51820/udp"
+
+    environment:
+      # En dev, permitir localhost como SERVERURL
+      SERVERURL: "127.0.0.1"
+      SERVERPORT: "${WIREGUARD_PORT:-51820}"
+      # Más clientes de prueba
+      PEERS: "dev-test-1,dev-test-2,dev-test-3,dev-test-4"

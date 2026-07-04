@@ -1,0 +1,100 @@
+# =============================================================================
+# WireGuard VPN — Acceso seguro a infraestructura desde equipos remotos
+# =============================================================================
+# Imagen: linuxserver/wireguard (multi-arquitectura, bien mantenida)
+# Función: VPN para desarrolladores → acceso a BD, Grafana, APIs internas
+#
+# En PRODUCCIÓN:
+# - Puerto 51820/udp expuesto directamente al host (NAT-friendly)
+# - Clientes en subnet privada 10.0.0.0/24 (configurable)
+# - Clave privada persistida en volumen
+# - Sin acceso directo a otros servicios; enrutamiento por IP privada de VPN
+# =============================================================================
+
+services:
+  wireguard:
+    # Versión específica y estable (NO usar :latest en producción)
+    # Última actualización: 2026-07-04
+    # Pattern: wireguard-version-r{revision}-ls{linuxserver_version}
+    # Ver versiones disponibles: https://hub.docker.com/r/linuxserver/wireguard/tags
+    image: linuxserver/wireguard:1.0.20250521-r1-ls116
+    container_name: arquisoft-wireguard
+    restart: always
+
+    # Recursos: WireGuard es extremadamente ligero (~50-100MB en uso)
+    # Pero reservamos un margen para procesamiento de tráfico
+    mem_limit: 256m
+    memory_reservation: 128m
+    cpus: "0.5"
+
+    environment:
+      TZ: "${TZ:-America/Bogota}"
+      PUID: "1000"
+      PGID: "1000"
+
+      # Subnet privada de clientes VPN (10.0.0.0/24 = 10.0.0.1-254)
+      SERVERURL: "${WIREGUARD_HOST}"
+      SERVERPORT: "${WIREGUARD_PORT:-51820}"
+      PEERS: "${PEERS:-dev1,dev2,dev3}"  # Clientes a generar (nombre,nombre,...)
+      PEERDNS: "10.0.0.1"                 # Servidor DNS interno (WireGuard)
+      INTERNAL_SUBNET: "${WIREGUARD_SUBNET:-10.0.0.0/24}"
+
+      # Configuración de seguridad
+      ALLOWEDIPS: "0.0.0.0/0"            # Clientes pueden acceder a cualquier red (control en cortafuegos)
+
+      # Logging
+      LOG_CONFS: "true"
+
+    # Volúmenes: confg persistente + clientes generados
+    volumes:
+      # Configs y claves privadas del servidor
+      - arquisoft-wireguard-config:/config
+      # Directorios compartidos (si necesita mount puntual)
+      - arquisoft-wireguard-confs:/config/peer_confs
+
+    # Puerto UDP directo en el host (NAT-friendly, crucial para VPN)
+    ports:
+      - "${WIREGUARD_PORT:-51820}:51820/udp"
+
+    # Capabilities mínimos para VPN
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+
+    # Kernel modules que WireGuard puede necesitar
+    sysctls:
+      - net.ipv4.conf.all.forwarding=1
+      - net.ipv4.conf.default.forwarding=1
+
+    # Red interna para descubrimiento de servicios
+    networks:
+      arquisoft-network:
+        aliases:
+          - wireguard
+          - vpn
+
+    # Healthcheck: esperar a que WireGuard esté listo (~5s)
+    healthcheck:
+      test: ["CMD-SHELL", "wg show all 2>/dev/null | grep -q interface || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    # Logging centralizado (JSON)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  arquisoft-wireguard-config:
+    name: arquisoft-wireguard-config
+  arquisoft-wireguard-confs:
+    name: arquisoft-wireguard-confs
+
+networks:
+  arquisoft-network:
+    external: true
