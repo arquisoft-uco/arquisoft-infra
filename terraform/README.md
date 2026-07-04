@@ -31,8 +31,8 @@ terraform/
 - Para destino remoto (`docker_host = ssh://…`): cliente `ssh` local y que el usuario remoto
   pertenezca al grupo `docker` en el host.
 
-## Producción (servidor remoto por SSH)
-Guía paso a paso con buenas prácticas de seguridad: **[DESPLIEGUE-PROD.md](DESPLIEGUE-PROD.md)**.
+## Guía de despliegue (dev y prod)
+Prerrequisitos, orden de comandos y verificación: **[DESPLIEGUE.md](DESPLIEGUE.md)**.
 
 ## Uso
 ```bash

@@ -1,0 +1,58 @@
+# =============================================================================
+# duckdns (DNS dinámico) — servicio auxiliar AISLADO
+# =============================================================================
+# NO forma parte de deploy.sh ni del .env de la raíz. Es una configuración
+# auxiliar, completamente independiente: se levanta por su cuenta y lee su
+# propio .env (docker compose lo toma automáticamente de esta carpeta).
+#
+# Mantiene el subdominio de DuckDNS (p.ej. unyai.duckdns.org) apuntando a la IP
+# pública actual del servidor. La imagen de linuxserver corre un loop que llama
+# al endpoint de actualización de DuckDNS cada 5 minutos.
+#
+# No expone puertos ni usa redes compartidas: solo hace peticiones salientes
+# HTTPS a duckdns.org por la red bridge por defecto.
+#
+#   cd components/duckdns
+#   cp .env.example .env   # y rellenar DUCKDNS_TOKEN
+#   docker compose up -d
+# =============================================================================
+
+services:
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: arquisoft-duckdns
+    restart: always
+    environment:
+      TZ: ${TIMEZONE:-America/Bogota}
+      # Subdominio sin el sufijo .duckdns.org (varios separados por coma)
+      SUBDOMAINS: ${DUCKDNS_SUBDOMAINS:?DUCKDNS_SUBDOMAINS requerido - ver .env}
+      TOKEN: ${DUCKDNS_TOKEN:?DUCKDNS_TOKEN requerido - obtener en duckdns.org}
+      # ipv4 = deja que DuckDNS detecte la IP pública de origen (recomendado)
+      UPDATE_IP: ${DUCKDNS_UPDATE_IP:-ipv4}
+      LOG_FILE: "true"
+    volumes:
+      - duckdns-config:/config
+    healthcheck:
+      # La imagen escribe "successful" / "KO" en /config/duck.log (LOG_FILE=true)
+      test: ["CMD-SHELL", "tail -n 3 /config/duck.log | grep -q successful"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+        reservations:
+          memory: 16M
+          cpus: '0.05'
+
+volumes:
+  duckdns-config:
+    name: arquisoft-duckdns-config
