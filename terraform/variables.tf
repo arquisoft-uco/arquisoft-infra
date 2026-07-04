@@ -45,6 +45,12 @@ variable "expose_data_ports" {
   default     = false
 }
 
+variable "expose_vpn_port" {
+  description = "Exponer el puerto UDP de WireGuard públicamente (0.0.0.0). Debe ser true en prod: la VPN es el punto de entrada seguro, no un puerto de datos."
+  type        = bool
+  default     = true
+}
+
 variable "enable_server_prep" {
   description = "Aplicar firewall del host (ufw) vía SSH antes de desplegar (solo destinos remotos)"
   type        = bool

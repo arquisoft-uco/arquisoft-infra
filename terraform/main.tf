@@ -125,7 +125,7 @@ module "wireguard" {
   wireguard_port     = var.wireguard_port
   wireguard_subnet   = var.wireguard_subnet
   timezone           = var.timezone
-  expose_vpn_port    = var.expose_data_ports  # dev: 127.0.0.1, prod: 0.0.0.0
+  expose_vpn_port    = var.expose_vpn_port  # VPN pública (punto de entrada seguro), independiente de los puertos de datos
   peers              = var.wireguard_peers
   max_clients        = var.wireguard_max_clients
 }
