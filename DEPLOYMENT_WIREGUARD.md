@@ -351,6 +351,189 @@ ping -c 4 10.0.0.1  # gateway
 ping -c 4 10.0.0.254  # host servidor
 ```
 
+## Troubleshooting de Clientes VPN
+
+Estos son los problemas más comunes encontrados durante la configuración de clientes y cómo resolverlos.
+
+### ❌ "Pierdo Internet Cuando Conecto la VPN"
+
+**Problema:** Después de `sudo wg-quick up dev1`, no hay acceso a internet.
+
+**Causa:** El archivo de configuración tiene `AllowedIPs = 0.0.0.0/0`, que redirige TODO el tráfico (incluyendo internet) por la VPN.
+
+**Solución:**
+
+```bash
+# 1. Desconectar inmediatamente
+sudo wg-quick down dev1
+
+# 2. Editar configuración
+sudo nano /etc/wireguard/dev1.conf
+
+# 3. Buscar esta línea:
+#    AllowedIPs = 0.0.0.0/0    ← CAMBIAR A:
+#    AllowedIPs = 10.0.0.0/24   ← SOLO tráfico interno
+
+# 4. Guardar (Ctrl+X, Y, Enter)
+
+# 5. Reconectar
+sudo wg-quick up dev1
+
+# 6. Verificar internet funciona
+ping google.com
+```
+
+**Configuración correcta vs incorrecta:**
+
+```ini
+# ❌ INCORRECTO - Pierde internet
+AllowedIPs = 0.0.0.0/0
+
+# ✅ CORRECTO - Acceso a infraestructura + internet normal
+AllowedIPs = 10.0.0.0/24
+```
+
+---
+
+### ❌ "No Puedo Instalar WireGuard (Sudo sin Permisos)"
+
+**Problema:** Error al ejecutar `sudo apt install wireguard` en algunos contextos (IDE, shell remota).
+
+**Causa:** Algunos entornos requieren terminal interactiva real para `sudo`.
+
+**Solución:**
+
+```bash
+# Opción 1: Abrir terminal nueva (RECOMENDADO)
+# Presiona Ctrl+Alt+T para abrir terminal en tu máquina
+# Luego ejecuta:
+sudo apt update
+sudo apt install -y wireguard wireguard-tools resolvconf
+
+# Opción 2: Usar script automatizado
+# Crea archivo setup-wireguard.sh con los comandos de instalación
+# Ejecuta: bash setup-wireguard.sh
+```
+
+---
+
+### ❌ "VPN Conectada Pero No Veo en Sección de Red del Sistema"
+
+**Problema:** Después de conectar con `sudo wg-quick up dev1`, la interfaz no aparece en el panel de red gráfico.
+
+**Causa:** `wg-quick` es una herramienta de línea de comandos. NetworkManager no la integra automáticamente.
+
+**Solución:** Es **normal** y esperado. La VPN funciona perfectamente desde terminal.
+
+```bash
+# Verificar que esté activa
+ip link show dev1
+# Debe mostrar: <POINTOPOINT,NOARP,UP,LOWER_UP> ✅
+
+# Probar conectividad
+ping 10.0.0.1  # Gateway VPN
+ping 8.8.8.8   # Internet
+```
+
+**Si quieres que aparezca en GUI (opcional):**
+
+```bash
+sudo apt install network-manager-wireguard
+sudo systemctl restart NetworkManager
+```
+
+---
+
+### ❌ "La IP Asignada No Aparece en `ip addr show dev1`"
+
+**Problema:** Ejecutas `ip addr show dev1` pero no muestra dirección IP, aunque la VPN funciona.
+
+**Causa:** WireGuard a veces no muestra la dirección en comando simple. Pero funciona.
+
+**Verificación:**
+
+```bash
+# Confirmar que la interfaz está UP
+ip link show dev1
+# Debe mostrar: <POINTOPOINT,NOARP,UP,LOWER_UP>
+
+# Probar que funciona
+ping 10.0.0.1
+# Si responde, la VPN funciona correctamente
+
+# Ver detalles completos
+sudo wg show dev1
+# Debe mostrar dirección asignada
+```
+
+---
+
+### ❌ "Configuración Perdió `AllowedIPs` Después de Desconectar"
+
+**Problema:** Después de varios ciclos de conexión/desconexión, la configuración cambió.
+
+**Solución:**
+
+```bash
+# Verificar configuración actual
+cat /etc/wireguard/dev1.conf
+
+# Si está mal, restaurar desde backup o servidor
+scp oracle:/home/ubuntu/arquisoft-infra/peer_dev1/peer_dev1.conf ~/peer_dev1.conf
+sudo cp ~/peer_dev1.conf /etc/wireguard/dev1.conf
+sudo chmod 600 /etc/wireguard/dev1.conf
+
+# Reconectar
+sudo wg-quick down dev1
+sudo wg-quick up dev1
+```
+
+---
+
+### ✅ Verificar Que TODO Funciona
+
+Ejecuta este script de diagnóstico completo:
+
+```bash
+#!/bin/bash
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║        Verificación Completa de WireGuard VPN                 ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
+echo ""
+
+echo "1️⃣  INTERFAZ ACTIVA:"
+ip link show dev1 | grep -E "<.*UP.*>" && echo "   ✅ VPN activa" || echo "   ❌ VPN inactiva"
+echo ""
+
+echo "2️⃣  INTERNET FUNCIONA:"
+ping -c 1 -W 2 8.8.8.8 > /dev/null 2>&1 && echo "   ✅ Google DNS accesible" || echo "   ❌ Sin internet"
+echo ""
+
+echo "3️⃣  INFRAESTRUCTURA ACCESIBLE:"
+ping -c 1 -W 2 10.0.0.1 > /dev/null 2>&1 && echo "   ✅ Gateway 10.0.0.1 accesible" || echo "   ⚠️  Gateway no responde"
+echo ""
+
+echo "4️⃣  CONFIGURACIÓN CORRECTA:"
+grep "AllowedIPs" /etc/wireguard/dev1.conf | grep -q "10.0.0.0/24" && echo "   ✅ AllowedIPs correcto" || echo "   ❌ AllowedIPs incorrecto"
+echo ""
+
+echo "5️⃣  ESTADO WIREGUARD:"
+sudo wg show dev1 2>/dev/null | head -3
+echo ""
+
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║            Si todos marcan ✅, ¡todo está bien!              ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
+```
+
+Guarda como `/tmp/check-vpn.sh` y ejecuta:
+
+```bash
+bash /tmp/check-vpn.sh
+```
+
+---
+
 ## Variables de Configuración
 
 Para personalizar, editar `terraform/prod.tfvars`:

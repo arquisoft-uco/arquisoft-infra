@@ -72,23 +72,132 @@ docker exec arquisoft-wireguard cat /config/peer_confs/dev1/dev1.png
 
 ## Configuración del Cliente
 
-### En Linux/macOS
+### ⚠️ IMPORTANTE: AllowedIPs Debe Ser `10.0.0.0/24`
+
+**NO usar `AllowedIPs = 0.0.0.0/0`** — esto redirige TODO el tráfico (incluyendo internet) por la VPN.
+
+✅ **Correcto:**
+```ini
+AllowedIPs = 10.0.0.0/24    # SOLO tráfico interno
+```
+
+❌ **Incorrecto:**
+```ini
+AllowedIPs = 0.0.0.0/0      # PIERDE acceso a internet
+```
+
+---
+
+### En Linux/macOS — Guía Paso a Paso
+
+#### **PASO 1: Instalar WireGuard**
 
 ```bash
-# 1. Instalar WireGuard
-# macOS: brew install wireguard-tools
-# Ubuntu/Debian: sudo apt install wireguard wireguard-tools
+# Ubuntu/Debian/Pop!_OS
+sudo apt update
+sudo apt install -y wireguard wireguard-tools resolvconf
 
-# 2. Copiar config desde el servidor
-scp oracle@vpn.arquisoft.top:~/clientes/dev1/dev1.conf /etc/wireguard/
+# macOS
+brew install wireguard-tools
+```
+
+#### **PASO 2: Obtener Configuración del Servidor**
+
+```bash
+# Descargar desde servidor
+scp oracle:/home/ubuntu/arquisoft-infra/peer_dev1/peer_dev1.conf ~/peer_dev1.conf
+
+# O copiar manualmente desde Slack/email
+```
+
+**Verificar que contenga:**
+```ini
+[Interface]
+Address = 10.0.0.2
+PrivateKey = ...
+DNS = 10.0.0.1
+
+[Peer]
+PublicKey = ...
+Endpoint = arquisoft.top:51820
+AllowedIPs = 10.0.0.0/24    # ✅ DEBE SER ESTO, NO 0.0.0.0/0
+```
+
+#### **PASO 3: Copiar a Directorio de Sistema**
+
+```bash
+# Copiar config
+sudo cp ~/peer_dev1.conf /etc/wireguard/dev1.conf
+
+# Ajustar permisos (crucial)
 sudo chmod 600 /etc/wireguard/dev1.conf
+```
 
-# 3. Conectar
+#### **PASO 4: Conectar a VPN**
+
+```bash
 sudo wg-quick up dev1
+```
 
-# 4. Verificar
+**Salida esperada:**
+```
+[#] ip link add dev1 type wireguard
+[#] wg setconf dev1 /dev/fd/63
+[#] ip -4 address add 10.0.0.2/32 dev dev1
+[#] ip link set mtu 1420 up dev dev1
+[#] wg set dev1 fwmark 51820
+[#] iptables -t mangle -I FORWARD -o dev1 -j MARK --set-xmark 0xca6c/0xffffffff
+[#] iptables -t nat -I POSTROUTING -o dev1 -j MASQUERADE
+```
+
+#### **PASO 5: Verificar Conexión**
+
+```bash
+# Ver estado de WireGuard
 sudo wg show dev1
-sudo ip addr show dev1
+
+# Ver IP asignada
+ip addr show dev1
+# Debe mostrar: inet 10.0.0.2/32 dev dev1
+
+# Test de internet (debe funcionar normalmente)
+ping google.com
+
+# Test de infraestructura
+ping 10.0.0.1
+# Latencia esperada: < 1ms
+```
+
+**Salida esperada:**
+```
+interface: dev1
+  public key: ...
+  listening port: 51820
+
+peer: 2UB/fw+...
+  preshared key: (hidden)
+  allowed ips: 10.0.0.0/24
+  latest handshake: 2 seconds ago
+  transfer: 1.23 MiB received, 5.67 MiB sent
+```
+
+#### **PASO 6: Desconectar (cuando sea necesario)**
+
+```bash
+sudo wg-quick down dev1
+```
+
+#### **PASO 7 (Opcional): Conectar Automáticamente en Boot**
+
+```bash
+# Habilitar autoconexión
+sudo systemctl enable wg-quick@dev1
+
+# Ver estado
+sudo systemctl status wg-quick@dev1
+
+# Ver logs
+sudo journalctl -u wg-quick@dev1 -f
 ```
 
 ### En Windows
@@ -160,34 +269,245 @@ docker logs -f arquisoft-wireguard
 # WireGuard expone métricas en /metrics (si prometheus-wg-exporter está enable)
 ```
 
-## Troubleshooting
+## Troubleshooting — Problemas y Soluciones
 
-### "No se puede alcanzar BD desde el cliente"
+### ❌ "Pierdo Internet Cuando Conecto la VPN"
+
+**Causa:** `AllowedIPs = 0.0.0.0/0` redirige TODO el tráfico por VPN.
+
+**Solución:**
+
+1. **Desconectar inmediatamente:**
+   ```bash
+   sudo wg-quick down dev1
+   ```
+
+2. **Verificar configuración:**
+   ```bash
+   grep "AllowedIPs" /etc/wireguard/dev1.conf
+   # Debe mostrar: AllowedIPs = 10.0.0.0/24
+   # NO: AllowedIPs = 0.0.0.0/0
+   ```
+
+3. **Si está mal, corregir:**
+   ```bash
+   # Editar archivo
+   sudo nano /etc/wireguard/dev1.conf
+   
+   # Cambiar esta línea:
+   # AllowedIPs = 0.0.0.0/0     ← ELIMINAR
+   # AllowedIPs = 10.0.0.0/24    ← AGREGAR
+   ```
+
+4. **Guardar y reconectar:**
+   ```bash
+   # Presionar Ctrl+X, luego Y, Enter (en nano)
+   sudo wg-quick up dev1
+   
+   # Verificar internet funciona
+   ping google.com
+   ```
+
+---
+
+### ❌ "VPN no Aparece en la Sección de Red del Sistema"
+
+**Causa:** `wg-quick` es una herramienta CLI. NetworkManager no la integra automáticamente.
+
+**Solución:** Es normal. La VPN funciona correctamente desde terminal:
 
 ```bash
-# En el servidor VPN
-docker exec arquisoft-wireguard wg show
+# Verificar que está activa
+ip link show dev1
+# Debe mostrar: <POINTOPOINT,NOARP,UP,LOWER_UP>
 
-# Verificar que:
-# - Cliente tiene peer_key en el servidor
-# - Allowed IPs incluye subnet VPN (10.0.0.0/24)
-# - IP del cliente es 10.0.0.2+
-
-# En el cliente
-sudo wg show dev1
-# → Debe mostrar estado "last handshake" reciente
+# Probar conectividad
+ping 10.0.0.1  # Gateway VPN
+ping 8.8.8.8   # Internet
 ```
 
-### "Conexión lenta"
+**Alternativa (Opcional):** Si quieres que aparezca en GUI, instala plugin de NetworkManager:
 
-- VPN usa UDP (faster than TCP)
-- Si hay packet loss, revisar MTU: `ip link show dev wg0`
-- Ajustar si es necesario: `ip link set dev wg0 mtu 1420`
+```bash
+sudo apt install network-manager-wireguard
+sudo systemctl restart NetworkManager
+```
 
-### "DNS no funciona"
+---
 
-- Cliente debe usar `PEERDNS=10.0.0.1` (resolvedor interno)
-- O configurar manualmente en cliente: `10.0.0.1` como nameserver
+### ❌ "No Tengo Permisos para Ejecutar `sudo apt install`"
+
+**Causa:** En algunos contextos (IDE, shell remota), `sudo` requiere terminal interactiva.
+
+**Solución:**
+
+**Opción A: Ejecutar en Terminal Nueva (Recomendado)**
+```bash
+# Abre una terminal en tu máquina (no en IDE)
+Ctrl+Alt+T
+
+# Ejecuta el comando
+sudo apt update
+sudo apt install -y wireguard wireguard-tools resolvconf
+```
+
+**Opción B: Script Automatizado**
+```bash
+# En terminal real:
+bash /tmp/setup-wireguard.sh
+```
+
+---
+
+### ❌ "No se puede alcanzar BD (10.0.0.254)"
+
+**Causas posibles:**
+
+1. **VPN no está conectada:**
+   ```bash
+   ip link show dev1
+   # Debe mostrar: <POINTOPOINT,NOARP,UP,LOWER_UP>
+   ```
+
+2. **Firewall del servidor bloquea:**
+   ```bash
+   # En servidor (ssh oracle):
+   sudo ufw status
+   
+   # Permitir si es necesario:
+   sudo ufw allow 5432/tcp  # PostgreSQL
+   sudo ufw allow 6379/tcp  # Redis
+   ```
+
+3. **Servicio interno no está corriendo:**
+   ```bash
+   # En servidor:
+   docker ps | grep -E "postgres|redis"
+   ```
+
+**Solución:**
+
+```bash
+# 1. Verificar VPN está conectada
+sudo wg show dev1
+# → Debe mostrar "latest handshake" reciente
+
+# 2. Verificar conectividad al gateway
+ping 10.0.0.1
+
+# 3. Intentar conexión a BD
+psql -h 10.0.0.254 -U postgres -c "SELECT 1;"
+```
+
+---
+
+### ❌ "Conexión Lenta o Packet Loss"
+
+**Síntomas:**
+- Latencia alta (> 100ms)
+- Packet loss en ping
+- Desconexiones frecuentes
+
+**Soluciones:**
+
+1. **Verificar MTU:**
+   ```bash
+   ip link show dev1
+   # Debe mostrar: mtu 1420
+   
+   # Si no, ajustar:
+   sudo ip link set dev1 mtu 1420
+   ```
+
+2. **Verificar endpoint del servidor:**
+   ```bash
+   grep Endpoint /etc/wireguard/dev1.conf
+   # Debe ser: Endpoint = arquisoft.top:51820
+   
+   # Verificar que resuelve:
+   nslookup arquisoft.top
+   ```
+
+3. **Revisar logs del servidor:**
+   ```bash
+   ssh oracle
+   docker logs -f arquisoft-wireguard
+   ```
+
+4. **Probar latencia:**
+   ```bash
+   # Ping al gateway
+   ping -c 10 10.0.0.1
+   # Esperado: < 1ms (conexión local)
+   ```
+
+---
+
+### ❌ "DNS no Funciona desde VPN"
+
+**Síntoma:** No puedo resolver nombres (nslookup falla desde VPN)
+
+**Solución:**
+
+1. **Verificar DNS está configurado:**
+   ```bash
+   grep DNS /etc/wireguard/dev1.conf
+   # Debe mostrar: DNS = 10.0.0.1
+   ```
+
+2. **Forzar DNS:**
+   ```bash
+   # Temporal
+   sudo systemctl restart systemd-resolved
+   
+   # Verificar
+   resolvectl
+   ```
+
+3. **Si sigue sin funcionar, usar DNS público:**
+   ```bash
+   # Editar config
+   sudo nano /etc/wireguard/dev1.conf
+   
+   # Cambiar DNS:
+   # DNS = 10.0.0.1         ← Interno (si falla)
+   # DNS = 8.8.8.8 8.8.4.4  ← Google (si necesitas fallback)
+   
+   # Reconectar
+   sudo wg-quick down dev1
+   sudo wg-quick up dev1
+   ```
+
+---
+
+### ✅ "Verificar que TODO Funciona"
+
+Ejecuta este script para diagnóstico completo:
+
+```bash
+#!/bin/bash
+echo "=== Verificación WireGuard ==="
+echo ""
+echo "1. Interfaz VPN:"
+ip link show dev1 | grep -E "<.*UP.*>"
+echo ""
+echo "2. IP Asignada:"
+ip addr show dev1 | grep inet
+echo ""
+echo "3. Internet:"
+ping -c 1 8.8.8.8 && echo "✅ Internet OK" || echo "❌ Sin internet"
+echo ""
+echo "4. Gateway VPN:"
+ping -c 1 10.0.0.1 && echo "✅ Gateway OK" || echo "❌ Sin gateway"
+echo ""
+echo "5. Estado WireGuard:"
+sudo wg show dev1 | head -5
+```
+
+Guarda como `/tmp/check-vpn.sh` y ejecuta:
+```bash
+bash /tmp/check-vpn.sh
+```
 
 ## Recursos de Referencias
 
