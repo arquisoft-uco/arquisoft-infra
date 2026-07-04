@@ -1,0 +1,91 @@
+# =============================================================================
+# terraform.tfvars.example — Plantilla de configuración por entorno
+# =============================================================================
+# Copia este archivo a `terraform.tfvars` y ajusta los valores.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# `terraform.tfvars` está en .gitignore (config por-entorno). Este `.example`
+# SÍ se versiona y documenta qué variables existen y qué valores esperar.
+#
+# NOTA: aquí NO van secretos. Todas las contraseñas/keys se generan solas
+# (módulo `secrets` con random_password) salvo que uses `provided_secrets`.
+# =============================================================================
+
+# ---------- Entorno / dominio ----------
+domain             = "arquisoft.top"          # dominio público base (api., auth., grafana., ...)
+acme_email         = "admin@arquisoft.top"    # email para Let's Encrypt (Traefik)
+environment        = "prod"                    # dev | prod (solo nomenclatura/estado)
+timezone           = "America/Bogota"
+
+# ---------- Toggles de despliegue ----------
+expose_data_ports  = false   # prod: false (datos solo por red interna/VPN). dev: true (127.0.0.1)
+expose_vpn_port    = true    # VPN pública (0.0.0.0). Es el punto de entrada seguro; dejar true en prod.
+enable_server_prep = false   # aplicar firewall ufw vía SSH antes de desplegar (solo destinos remotos)
+
+# =============================================================================
+# RED — Esquema de direccionamiento VPN + Docker (supernet 172.16.0.0/16)
+# =============================================================================
+# Convención: todo el esquema vive bajo 172.16.0.0/16, con /24 por propósito/nodo.
+# Esto evita colisión con el Docker LOCAL de los devs (típicamente 10.x) y permite
+# alcanzar los servicios por VPN.
+#
+#   172.16.0.0/24  → clientes VPN (wireguard_subnet)      gateway wg0 = .1
+#   172.16.1.0/24  → servicios del nodo 1 (docker_subnet) gateway    = .1
+#   172.16.2.0/24  → (futuro) servicios del nodo 2
+#   ...
+#
+# REQUISITO DEL HOST: el bridge default de Docker (docker0) y su default-address-pool
+# NO deben solaparse con docker_subnet. En un servidor Docker limpio esto se cumple
+# solo (docker0 = 172.17.0.1/16 por defecto). Ver docs/host-setup.md.
+# ---------------------------------------------------------------------------
+
+wireguard_port    = 51820
+wireguard_subnet  = "172.16.0.0/24"           # subnet de clientes VPN
+wireguard_peers   = ["dev1", "dev2", "dev3"]  # se generan configs individuales por peer
+
+docker_subnet     = "172.16.1.0/24"           # subnet de arquisoft-network (servicios). null = pool default de Docker.
+# IPs estáticas derivadas de docker_subnet (ver local.svc_ip en main.tf):
+#   postgres .10  keycloak-db .11  redis .12  rabbitmq .13  minio .14  keycloak .15
+#   grafana .16   prometheus .17   loki .18   alloy .19     traefik .20 wireguard .21
+
+# ---------- PostgreSQL de la aplicación ----------
+postgres_user     = "postgres"        # superusuario del contenedor
+postgres_db       = "postgres"
+app_db_user       = "arquisoft_user"  # usuario dueño de las 7 BDs de bounded context
+
+# ---------- Keycloak ----------
+keycloak_admin_user = "admin"
+keycloak_realm      = "arquisoft"
+keycloak_client_id  = "arquisoft-api"
+keycloak_db_user    = "keycloak"
+keycloak_db_name    = "keycloak"
+
+# ---------- RabbitMQ ----------
+rabbitmq_user     = "guest"
+rabbitmq_vhost    = "/"           # el backend usa el vhost por defecto '/'
+
+# ---------- MinIO ----------
+minio_root_user   = "minioadmin"
+minio_access_key  = "minioadmin"  # access key de la cuenta de servicio del backend
+
+# ---------- Grafana / consolas admin ----------
+grafana_admin_user = "admin"
+admin_auth_user    = "admin"      # BasicAuth de consolas admin (Traefik dashboard, etc.)
+
+# ---------- Secretos externos (opcional) ----------
+# Vacío = generar con random_password. Para usar un Key Vault, poblar este mapa.
+provided_secrets  = {}
+
+# =============================================================================
+# Multi-servidor (opcional) — solo si observabilidad vive en otro host
+# =============================================================================
+# loki_url        = "http://<OBS_PRIVATE_IP>:3100/loki/api/v1/push"
+# prometheus_url  = "http://<OBS_PRIVATE_IP>:9090/api/v1/write"
+# backend_target  = "arquisoft-backend:8080"
+
+# =============================================================================
+# Destino Docker remoto (opcional) — desplegar contra un host vía SSH
+# =============================================================================
+# docker_host     = "ssh://ubuntu@arquisoft.top"
+# docker_ssh_opts = ["-i", "~/.ssh/id_rsa", "-o", "StrictHostKeyChecking=accept-new"]
