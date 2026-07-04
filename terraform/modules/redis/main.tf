@@ -8,6 +8,11 @@ terraform {
 }
 
 variable "network_name" { type = string }
+variable "static_ip" {
+  description = "IP estática dentro de la red (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
 variable "redis_password" {
   type      = string
   sensitive = true
@@ -57,8 +62,9 @@ resource "docker_container" "redis" {
   }
 
   networks_advanced {
-    name    = var.network_name
-    aliases = ["redis"]
+    name         = var.network_name
+    aliases      = ["redis"]
+    ipv4_address = var.static_ip
   }
 
   healthcheck {

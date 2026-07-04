@@ -116,8 +116,9 @@ resource "docker_container" "wireguard" {
 
   # Conectar a red Docker compartida con otros servicios
   networks_advanced {
-    name    = var.network_name
-    aliases = ["wireguard", "vpn"]
+    name         = var.network_name
+    aliases      = ["wireguard", "vpn"]
+    ipv4_address = var.static_ip
   }
 
   # Healthcheck: verificar que WireGuard está operativo

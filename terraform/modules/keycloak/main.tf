@@ -8,6 +8,16 @@ terraform {
 }
 
 variable "network_name" { type = string }
+variable "kc_db_static_ip" {
+  description = "IP estática de la BD de Keycloak (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
+variable "keycloak_static_ip" {
+  description = "IP estática de Keycloak (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
 variable "component_dir" { type = string } # components/keycloak (para realm template)
 variable "domain" { type = string }
 
@@ -68,8 +78,9 @@ resource "docker_container" "kc_db" {
   }
 
   networks_advanced {
-    name    = var.network_name
-    aliases = ["keycloak-db"]
+    name         = var.network_name
+    aliases      = ["keycloak-db"]
+    ipv4_address = var.kc_db_static_ip
   }
 
   healthcheck {
@@ -143,8 +154,9 @@ resource "docker_container" "keycloak" {
   }
 
   networks_advanced {
-    name    = var.network_name
-    aliases = ["keycloak"]
+    name         = var.network_name
+    aliases      = ["keycloak"]
+    ipv4_address = var.keycloak_static_ip
   }
 
   healthcheck {

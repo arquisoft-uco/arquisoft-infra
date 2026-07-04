@@ -12,6 +12,11 @@ terraform {
 }
 
 variable "network_name" { type = string }
+variable "static_ip" {
+  description = "IP estática dentro de la red (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
 variable "component_dir" {
   description = "Ruta absoluta a components/rabbitmq (config y definitions.json.template)"
   type        = string
@@ -98,8 +103,9 @@ resource "docker_container" "rabbitmq" {
   }
 
   networks_advanced {
-    name    = var.network_name
-    aliases = ["rabbitmq"]
+    name         = var.network_name
+    aliases      = ["rabbitmq"]
+    ipv4_address = var.static_ip
   }
 
   healthcheck {

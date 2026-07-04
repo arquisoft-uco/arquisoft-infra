@@ -8,6 +8,21 @@ terraform {
 }
 
 variable "network_name" { type = string }
+variable "loki_static_ip" {
+  description = "IP estática de Loki (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
+variable "prometheus_static_ip" {
+  description = "IP estática de Prometheus (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
+variable "grafana_static_ip" {
+  description = "IP estática de Grafana (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
 variable "component_dir" { type = string } # components/observability
 variable "domain" { type = string }
 variable "grafana_admin_user" { type = string }
@@ -45,8 +60,9 @@ resource "docker_container" "loki" {
   }
 
   networks_advanced {
-    name    = var.network_name
-    aliases = ["loki"]
+    name         = var.network_name
+    aliases      = ["loki"]
+    ipv4_address = var.loki_static_ip
   }
 
   healthcheck {
@@ -99,8 +115,9 @@ resource "docker_container" "prometheus" {
   }
 
   networks_advanced {
-    name    = var.network_name
-    aliases = ["prometheus"]
+    name         = var.network_name
+    aliases      = ["prometheus"]
+    ipv4_address = var.prometheus_static_ip
   }
 
   healthcheck {
@@ -173,8 +190,9 @@ resource "docker_container" "grafana" {
   }
 
   networks_advanced {
-    name    = var.network_name
-    aliases = ["grafana"]
+    name         = var.network_name
+    aliases      = ["grafana"]
+    ipv4_address = var.grafana_static_ip
   }
 
   healthcheck {

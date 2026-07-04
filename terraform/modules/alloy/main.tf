@@ -14,6 +14,11 @@ terraform {
 }
 
 variable "network_name"  { type = string }
+variable "static_ip" {
+  description = "IP estática dentro de la red (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
 variable "component_dir" { type = string }
 
 variable "loki_url" {
@@ -71,7 +76,8 @@ resource "docker_container" "alloy" {
   }
 
   networks_advanced {
-    name = var.network_name
+    name         = var.network_name
+    ipv4_address = var.static_ip
   }
 
   healthcheck {

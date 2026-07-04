@@ -25,6 +25,23 @@ locals {
   # Rutas absolutas a los componentes (fuente de configs reutilizada por los módulos)
   components_dir = abspath("${path.module}/../components")
   secrets        = module.secrets.values
+
+  # IPs estáticas de servicios dentro de docker_subnet → endpoints fijos vía VPN
+  # (DBeaver, apps locales). null cuando docker_subnet es null (dev): Docker asigna.
+  svc_ip = var.docker_subnet == null ? {} : {
+    postgres    = cidrhost(var.docker_subnet, 10)
+    keycloak_db = cidrhost(var.docker_subnet, 11)
+    redis       = cidrhost(var.docker_subnet, 12)
+    rabbitmq    = cidrhost(var.docker_subnet, 13)
+    minio       = cidrhost(var.docker_subnet, 14)
+    keycloak    = cidrhost(var.docker_subnet, 15)
+    grafana     = cidrhost(var.docker_subnet, 16)
+    prometheus  = cidrhost(var.docker_subnet, 17)
+    loki        = cidrhost(var.docker_subnet, 18)
+    alloy       = cidrhost(var.docker_subnet, 19)
+    traefik     = cidrhost(var.docker_subnet, 20)
+    wireguard   = cidrhost(var.docker_subnet, 21)
+  }
 }
 
 # ---------- Datos ----------
@@ -38,8 +55,7 @@ module "postgres" {
   app_db_user       = var.app_db_user
   app_db_password   = local.secrets["app_db_password"]
   expose_ports      = var.expose_data_ports
-  # IP estática (endpoint fijo para DBeaver vía VPN): .10 dentro del subnet de servicios
-  static_ip         = var.docker_subnet == null ? null : cidrhost(var.docker_subnet, 10)
+  static_ip         = lookup(local.svc_ip, "postgres", null)
 }
 
 module "redis" {
@@ -47,6 +63,7 @@ module "redis" {
   network_name   = module.network.name
   redis_password = local.secrets["redis_password"]
   expose_ports   = var.expose_data_ports
+  static_ip      = lookup(local.svc_ip, "redis", null)
 }
 
 module "rabbitmq" {
@@ -58,6 +75,7 @@ module "rabbitmq" {
   rabbitmq_password = local.secrets["rabbitmq_password"]
   rabbitmq_vhost    = var.rabbitmq_vhost
   expose_ports      = var.expose_data_ports
+  static_ip         = lookup(local.svc_ip, "rabbitmq", null)
 }
 
 module "minio" {
@@ -70,6 +88,7 @@ module "minio" {
   minio_access_key    = var.minio_access_key
   minio_secret_key    = local.secrets["minio_secret_key"]
   expose_ports        = var.expose_data_ports
+  static_ip           = lookup(local.svc_ip, "minio", null)
 }
 
 # ---------- Identidad ----------
@@ -86,6 +105,8 @@ module "keycloak" {
   db_password            = local.secrets["keycloak_db_password"]
   client_id              = var.keycloak_client_id
   client_secret          = local.secrets["keycloak_client_secret"]
+  kc_db_static_ip        = lookup(local.svc_ip, "keycloak_db", null)
+  keycloak_static_ip     = lookup(local.svc_ip, "keycloak", null)
 }
 
 # ---------- Observabilidad ----------
@@ -96,6 +117,9 @@ module "observability" {
   domain                 = var.domain
   grafana_admin_user     = var.grafana_admin_user
   grafana_admin_password = local.secrets["grafana_admin_password"]
+  loki_static_ip         = lookup(local.svc_ip, "loki", null)
+  prometheus_static_ip   = lookup(local.svc_ip, "prometheus", null)
+  grafana_static_ip      = lookup(local.svc_ip, "grafana", null)
 }
 
 # ---------- Proxy (Traefik) ----------
@@ -108,6 +132,7 @@ module "proxy" {
   timezone      = var.timezone
   admin_user    = var.admin_auth_user
   admin_bcrypt  = module.secrets.admin_auth_bcrypt
+  static_ip     = lookup(local.svc_ip, "traefik", null)
 }
 
 # ---------- Alloy (agente de observabilidad) ----------
@@ -118,6 +143,7 @@ module "alloy" {
   loki_url       = var.loki_url
   prometheus_url = var.prometheus_url
   backend_target = var.backend_target
+  static_ip      = lookup(local.svc_ip, "alloy", null)
 }
 
 # ---------- VPN (WireGuard) — Acceso seguro a infraestructura ----------
@@ -131,6 +157,7 @@ module "wireguard" {
   expose_vpn_port    = var.expose_vpn_port  # VPN pública (punto de entrada seguro), independiente de los puertos de datos
   peers              = var.wireguard_peers
   max_clients        = var.wireguard_max_clients
+  static_ip          = lookup(local.svc_ip, "wireguard", null)
 }
 
 # ---------- Preparación de red del servidor (firewall) ----------

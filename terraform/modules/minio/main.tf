@@ -11,6 +11,11 @@ variable "network_name" { type = string }
 variable "domain" { type = string }
 variable "timezone" { type = string }
 variable "minio_root_user" { type = string }
+variable "static_ip" {
+  description = "IP estática dentro de la red (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
 variable "minio_root_password" {
   type      = string
   sensitive = true
@@ -95,8 +100,9 @@ resource "docker_container" "minio" {
   }
 
   networks_advanced {
-    name    = var.network_name
-    aliases = ["minio"]
+    name         = var.network_name
+    aliases      = ["minio"]
+    ipv4_address = var.static_ip
   }
 
   healthcheck {

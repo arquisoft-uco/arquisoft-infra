@@ -7,6 +7,12 @@ variable "network_name" {
   type        = string
 }
 
+variable "static_ip" {
+  description = "IP estática dentro de la red (endpoint fijo vía VPN). null = dinámica"
+  type        = string
+  default     = null
+}
+
 variable "domain" {
   description = "Dominio público del servidor VPN (vpn.arquisoft.top)"
   type        = string
