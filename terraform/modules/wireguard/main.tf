@@ -100,11 +100,13 @@ resource "docker_container" "wireguard" {
   }
 
   # Capabilities necesarios para VPN a nivel kernel
-  cap_add = [
-    "NET_ADMIN",   # Crear interfaces de red
-    "NET_RAW",     # Trabajo a nivel de paquetes
-    "SYS_MODULE",  # Cargar módulos kernel (WireGuard)
-  ]
+  capabilities {
+    add = [
+      "NET_ADMIN",   # Crear interfaces de red
+      "NET_RAW",     # Trabajo a nivel de paquetes
+      "SYS_MODULE",  # Cargar módulos kernel (WireGuard)
+    ]
+  }
 
   # Kernel sysctls para IP forwarding (crucial para enrutamiento de tráfico)
   sysctls = {
