@@ -115,9 +115,9 @@ variable "wireguard_port" {
 }
 
 variable "wireguard_subnet" {
-  description = "Subnet privada de clientes VPN (default: 10.0.0.0/24)"
+  description = "Subnet privada de clientes VPN (default: 10.0.2.0/24, coincide con Docker)"
   type        = string
-  default     = "10.0.0.0/24"
+  default     = "10.0.2.0/24"
 }
 
 variable "wireguard_peers" {
