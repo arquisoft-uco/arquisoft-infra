@@ -97,10 +97,11 @@ Los peers se definen en `terraform.tfvars` (`wireguard_peers`); el contenedor
    docker exec arquisoft-wireguard cat /config/peer_dev4/peer_dev4.png   # QR móvil
    ```
 
-4. **Ajustar antes de enviar** (split-tunnel + no secuestrar el DNS del dev):
-   - `AllowedIPs = 172.16.0.0/16`  (VPN + servicios; su internet sigue local)
-   - opcional: quitar la línea `DNS = ...`
-   - El `Endpoint` ya apunta a `arquisoft.top:51820`.
+4. **Enviar tal cual — ya no hace falta ajustar.** El contenedor genera la config
+   con `AllowedIPs = 172.16.0.0/16` (split-tunnel: VPN + servicios sin perder
+   internet) y `DNS = 1.1.1.1` (público: no enruta el DNS del dev por la VPN), vía
+   las variables `wireguard_allowed_ips` / `wireguard_peer_dns`. El `Endpoint` ya
+   apunta a `arquisoft.top:51820`.
 
 5. **Enviar por canal SEGURO** — la config contiene la llave privada del dev. NO en
    claro por email/Slack; usar cifrado o un gestor de secretos.

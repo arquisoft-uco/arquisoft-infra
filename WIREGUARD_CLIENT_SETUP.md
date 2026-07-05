@@ -30,7 +30,7 @@ Solicita el archivo `peer_dev1.conf` a tu líder técnico (vía email, Slack, et
 Address = 172.16.0.2
 PrivateKey = IGmsBi9i3VAkcoOtFKOgj41/Daz0+DZYBgXsXWXxCWM=
 ListenPort = 51820
-DNS = 172.16.0.1
+DNS = 1.1.1.1
 
 [Peer]
 PublicKey = 2UB/fw+9tJ9ubCxNZDsntrBw/gNRKrdelTnaijERTjE=
