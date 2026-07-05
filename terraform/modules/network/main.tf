@@ -18,4 +18,13 @@ resource "docker_network" "this" {
       subnet = ipam_config.value
     }
   }
+
+  # El provider kreuzwerker/docker marca ipam_config como ForceNew y ve un diff
+  # espurio en cada plan (Docker auto-asigna el gateway .1, que queda en el estado
+  # pero no se declara aquí) → querría recrear la red siempre. La red es estable;
+  # para renumerarla se usa -replace explícito. Ignorar el diff evita recreaciones
+  # accidentales en cascada al aplicar otros recursos.
+  lifecycle {
+    ignore_changes = [ipam_config]
+  }
 }
