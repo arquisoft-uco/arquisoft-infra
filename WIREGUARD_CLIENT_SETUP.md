@@ -27,19 +27,19 @@ Solicita el archivo `peer_dev1.conf` a tu líder técnico (vía email, Slack, et
 
 ```ini
 [Interface]
-Address = 10.0.0.2
+Address = 172.16.0.2
 PrivateKey = IGmsBi9i3VAkcoOtFKOgj41/Daz0+DZYBgXsXWXxCWM=
 ListenPort = 51820
-DNS = 10.0.0.1
+DNS = 172.16.0.1
 
 [Peer]
 PublicKey = 2UB/fw+9tJ9ubCxNZDsntrBw/gNRKrdelTnaijERTjE=
 PresharedKey = VfujI7ybCZhpX7DvlBnciQl+h9vbRghvPdJI2BG5LYY=
 Endpoint = arquisoft.top:51820
-AllowedIPs = 10.0.0.0/24
+AllowedIPs = 172.16.0.0/16
 ```
 
-⚠️ **CRÍTICO:** Línea 12 DEBE ser `AllowedIPs = 10.0.0.0/24` (NO `0.0.0.0/0`)
+⚠️ **CRÍTICO:** Línea 12 DEBE ser `AllowedIPs = 172.16.0.0/16` (NO `0.0.0.0/0`)
 
 ### PASO 3: Copiar a Sistema
 
@@ -67,7 +67,7 @@ sudo wg-quick up dev1
 ```
 [#] ip link add dev1 type wireguard
 [#] wg setconf dev1 /dev/fd/63
-[#] ip -4 address add 10.0.0.2/32 dev dev1
+[#] ip -4 address add 172.16.0.2/32 dev dev1
 ...
 ```
 
@@ -78,20 +78,20 @@ sudo wg-quick up dev1
 ping google.com
 
 # Test 2: ¿Puedo alcanzar infraestructura?
-ping 10.0.0.1
+ping 172.16.0.1
 
 # Test 3: Ver estado de VPN
 sudo wg show dev1
 
 # Test 4: Acceso a BD (si tienes permisos)
-psql -h 10.0.0.254 -U postgres -c "SELECT version();"
+psql -h 172.16.1.10 -U postgres -c "SELECT version();"
 ```
 
 **Resultados esperados:**
 
 ```
 ✅ Ping google.com: ~20-30ms (internet normal)
-✅ Ping 10.0.0.1: <1ms (infraestructura)
+✅ Ping 172.16.0.1: <1ms (infraestructura)
 ✅ psql: Conexión exitosa a BD
 ```
 
@@ -140,7 +140,7 @@ sudo systemctl start wg-quick@dev1
 sudo wg-quick down dev1
 sudo nano /etc/wireguard/dev1.conf
 # Cambiar: AllowedIPs = 0.0.0.0/0
-# A esto: AllowedIPs = 10.0.0.0/24
+# A esto: AllowedIPs = 172.16.0.0/16
 sudo wg-quick up dev1
 ```
 
@@ -158,7 +158,7 @@ sudo apt install -y wireguard wireguard-tools
 Es normal. Funciona desde terminal. Ejecuta:
 ```bash
 ip link show dev1  # Debe mostrar: UP, LOWER_UP
-ping 10.0.0.1      # Debe responder
+ping 172.16.0.1      # Debe responder
 ```
 
 ### "No Puedo Conectar a BD (PostgreSQL)"
@@ -169,10 +169,10 @@ sudo wg show dev1
 # Debe mostrar "latest handshake" reciente
 
 # 2. Probar ping
-ping 10.0.0.1
+ping 172.16.0.1
 
 # 3. Intentar conexión
-psql -h 10.0.0.254 -U postgres -c "SELECT 1;"
+psql -h 172.16.1.10 -U postgres -c "SELECT 1;"
 ```
 
 ---
@@ -202,9 +202,9 @@ sudo nano /etc/wireguard/dev1.conf
 ip addr show dev1
 
 # Pruebas de conectividad
-ping 10.0.0.1            # Gateway VPN
+ping 172.16.0.1            # Gateway VPN
 ping 8.8.8.8             # Internet
-ping 10.0.0.254          # Host servidor
+ping 172.16.1.10          # Host servidor
 ```
 
 ---
@@ -216,8 +216,8 @@ ping 10.0.0.254          # Host servidor
 - [ ] Permisos correctos: `sudo chmod 600 /etc/wireguard/dev1.conf`
 - [ ] Conectado: `sudo wg-quick up dev1`
 - [ ] Internet funciona: `ping google.com` → <50ms
-- [ ] Infraestructura accesible: `ping 10.0.0.1` → <5ms
-- [ ] AllowedIPs correcto: `grep AllowedIPs /etc/wireguard/dev1.conf` → `10.0.0.0/24`
+- [ ] Infraestructura accesible: `ping 172.16.0.1` → <5ms
+- [ ] AllowedIPs correcto: `grep AllowedIPs /etc/wireguard/dev1.conf` → `172.16.0.0/16`
 - [ ] Estado mostrado: `sudo wg show dev1` → `latest handshake` reciente
 
 ---
@@ -227,7 +227,7 @@ ping 10.0.0.254          # Host servidor
 Si tienes problemas:
 
 1. Ejecuta: `sudo wg show dev1`
-2. Ejecuta: `ping 10.0.0.1`
+2. Ejecuta: `ping 172.16.0.1`
 3. Ejecuta: `ping 8.8.8.8`
 4. Contacta al equipo de infraestructura con los resultados
 

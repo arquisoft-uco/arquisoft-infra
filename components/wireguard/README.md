@@ -1,28 +1,28 @@
 # WireGuard VPN — Acceso Seguro a Infraestructura
 
 VPN moderna y segura basada en **WireGuard** para que desarrolladores accedan a:
-- 🔒 Bases de datos (PostgreSQL en 10.0.0.x)
-- 📊 Observabilidad (Grafana, Prometheus en 10.0.0.x)
-- 🐰 APIs internas (RabbitMQ, Redis en 10.0.0.x)
+- 🔒 Bases de datos (PostgreSQL en 172.16.1.x)
+- 📊 Observabilidad (Grafana, Prometheus en 172.16.1.x)
+- 🐰 APIs internas (RabbitMQ, Redis en 172.16.1.x)
 - 🔑 Keycloak y otros servicios internos
 
 ## Arquitectura
 
 ```
 Desarrollador (laptop/desktop)
-  ↓ WireGuard client (10.0.0.2-254)
+  ↓ WireGuard client (172.16.0.2-254)
   ↓ Encriptado (UDP 51820)
   ↓
-VPN Gateway (Oracle/VPS) → 10.0.0.1
-  ├─ Forwarding habilitado (net.ipv4.ip_forward=1)
-  ├─ Enruta tráfico 10.0.0.0/24 → servicios internos
-  └─ Cortafuegos permite solo puertos específicos
+VPN Gateway (Oracle) → wg0 = 172.16.0.1
+  ├─ Forwarding + MASQUERADE (contenedor linuxserver)
+  ├─ Enruta 172.16.0.0/16 → servicios internos
+  └─ Puerto 51820/udp abierto en el Security List de Oracle Cloud
   
-Servicios internos (red Docker arquisoft-network)
-  ├─ postgres:5432 (10.0.0.254)
-  ├─ redis:6379 (10.0.0.254)
-  ├─ rabbitmq:5672 (10.0.0.254)
-  └─ grafana:3000, loki:3100, etc. (10.0.0.254)
+Servicios internos (arquisoft-network = 172.16.1.0/24, IPs estáticas)
+  ├─ postgres 172.16.1.10:5432   keycloak-db 172.16.1.11:5432
+  ├─ redis    172.16.1.12:6379   rabbitmq    172.16.1.13:5672/15672
+  ├─ minio    172.16.1.14:9000   keycloak    172.16.1.15:8080
+  └─ grafana  172.16.1.16:3000   prometheus .17  loki .18
 ```
 
 ## Deployment
@@ -47,7 +47,7 @@ docker cp arquisoft-wireguard:/config/peer_confs ./clientes
 # Setup manual de .env
 export WIREGUARD_HOST="vpn.arquisoft.top"
 export WIREGUARD_PORT=51820
-export WIREGUARD_SUBNET="10.0.0.0/24"
+export WIREGUARD_SUBNET="172.16.0.0/24"
 export TZ="America/Bogota"
 export PEERS="dev1,dev2,dev3"
 
@@ -61,29 +61,80 @@ La imagen `linuxserver/wireguard` **genera automáticamente** configs de cliente
 
 ```bash
 # Ver clientes generados
-docker exec arquisoft-wireguard ls /config/peer_confs
+docker exec arquisoft-wireguard sh -c 'ls -d /config/peer_*'
 
-# Extraer config de un cliente (para email/distribución)
-docker exec arquisoft-wireguard cat /config/peer_confs/dev1/dev1.conf
+# Extraer config de un cliente (para distribución segura)
+docker exec arquisoft-wireguard cat /config/peer_dev1/peer_dev1.conf
 
-# Ver QR para conectarse (si está disponible)
-docker exec arquisoft-wireguard cat /config/peer_confs/dev1/dev1.png
+# Ver QR para conectarse desde móvil
+docker exec arquisoft-wireguard cat /config/peer_dev1/peer_dev1.png
+```
+
+## Agregar un desarrollador nuevo (acceso VPN)
+
+Los peers se definen en `terraform.tfvars` (`wireguard_peers`); el contenedor
+`linuxserver/wireguard` genera la config de cada uno automáticamente.
+
+1. **Añadir su nombre** a `wireguard_peers` en `terraform/terraform.tfvars` (en el
+   servidor; `tfvars` es config por-entorno, gitignored):
+
+   ```hcl
+   wireguard_peers = ["dev1", "dev2", "dev3", "dev4"]   # ← nuevo: dev4
+   ```
+
+2. **Aplicar** (workspace `prod`). Solo recrea el contenedor wireguard (~segundos de
+   corte; los peers existentes conservan sus llaves porque viven en el volumen):
+
+   ```bash
+   cd terraform && terraform workspace select prod
+   terraform apply -target=module.wireguard
+   ```
+
+3. **Extraer la config** del nuevo peer:
+
+   ```bash
+   docker exec arquisoft-wireguard cat /config/peer_dev4/peer_dev4.conf
+   docker exec arquisoft-wireguard cat /config/peer_dev4/peer_dev4.png   # QR móvil
+   ```
+
+4. **Ajustar antes de enviar** (split-tunnel + no secuestrar el DNS del dev):
+   - `AllowedIPs = 172.16.0.0/16`  (VPN + servicios; su internet sigue local)
+   - opcional: quitar la línea `DNS = ...`
+   - El `Endpoint` ya apunta a `arquisoft.top:51820`.
+
+5. **Enviar por canal SEGURO** — la config contiene la llave privada del dev. NO en
+   claro por email/Slack; usar cifrado o un gestor de secretos.
+
+6. El dev instala WireGuard (wireguard.com: Win/Mac/Linux/iOS/Android), importa el
+   `.conf` (o escanea el QR) y conecta. Obtiene `172.16.0.x` y alcanza los servicios
+   en `172.16.1.x` (cada uno con su propia autenticación).
+
+### Revocar el acceso de un dev
+
+```bash
+# Quitar su nombre de wireguard_peers en tfvars, luego:
+terraform apply -target=module.wireguard   # el servidor deja de aceptar ese peer
+# (opcional) limpiar su config del volumen:
+docker exec arquisoft-wireguard rm -rf /config/peer_devX
+# verificar:
+docker exec arquisoft-wireguard wg show
 ```
 
 ## Configuración del Cliente
 
-### ⚠️ IMPORTANTE: AllowedIPs Debe Ser `10.0.0.0/24`
+### ⚠️ IMPORTANTE: AllowedIPs = `172.16.0.0/16` (split-tunnel)
 
-**NO usar `AllowedIPs = 0.0.0.0/0`** — esto redirige TODO el tráfico (incluyendo internet) por la VPN.
+Usa el supernet completo: cubre los clientes VPN (`172.16.0.x`) **y** la red de
+servicios (`172.16.1.x`), sin redirigir tu internet por la VPN.
 
 ✅ **Correcto:**
 ```ini
-AllowedIPs = 10.0.0.0/24    # SOLO tráfico interno
+AllowedIPs = 172.16.0.0/16   # VPN + servicios; tu internet sigue local
 ```
 
-❌ **Incorrecto:**
+❌ **Evitar:**
 ```ini
-AllowedIPs = 0.0.0.0/0      # PIERDE acceso a internet
+AllowedIPs = 0.0.0.0/0       # full-tunnel: TODO tu tráfico sale por la VPN
 ```
 
 ---
@@ -113,14 +164,14 @@ scp oracle:/home/ubuntu/arquisoft-infra/peer_dev1/peer_dev1.conf ~/peer_dev1.con
 **Verificar que contenga:**
 ```ini
 [Interface]
-Address = 10.0.0.2
+Address = 172.16.0.2
 PrivateKey = ...
-DNS = 10.0.0.1
+DNS = 172.16.0.1
 
 [Peer]
 PublicKey = ...
 Endpoint = arquisoft.top:51820
-AllowedIPs = 10.0.0.0/24    # ✅ DEBE SER ESTO, NO 0.0.0.0/0
+AllowedIPs = 172.16.0.0/16    # ✅ DEBE SER ESTO, NO 0.0.0.0/0
 ```
 
 #### **PASO 3: Copiar a Directorio de Sistema**
@@ -143,7 +194,7 @@ sudo wg-quick up dev1
 ```
 [#] ip link add dev1 type wireguard
 [#] wg setconf dev1 /dev/fd/63
-[#] ip -4 address add 10.0.0.2/32 dev dev1
+[#] ip -4 address add 172.16.0.2/32 dev dev1
 [#] ip link set mtu 1420 up dev dev1
 [#] wg set dev1 fwmark 51820
 [#] iptables -t mangle -I FORWARD -o dev1 -j MARK --set-xmark 0xca6c/0xffffffff
@@ -158,13 +209,13 @@ sudo wg show dev1
 
 # Ver IP asignada
 ip addr show dev1
-# Debe mostrar: inet 10.0.0.2/32 dev dev1
+# Debe mostrar: inet 172.16.0.2/32 dev dev1
 
 # Test de internet (debe funcionar normalmente)
 ping google.com
 
 # Test de infraestructura
-ping 10.0.0.1
+ping 172.16.0.1
 # Latencia esperada: < 1ms
 ```
 
@@ -176,7 +227,7 @@ interface: dev1
 
 peer: 2UB/fw+...
   preshared key: (hidden)
-  allowed ips: 10.0.0.0/24
+  allowed ips: 172.16.0.0/24
   latest handshake: 2 seconds ago
   transfer: 1.23 MiB received, 5.67 MiB sent
 ```
@@ -214,7 +265,7 @@ sudo journalctl -u wg-quick@dev1 -f
 
 ## Enrutamiento de Servicios Internos
 
-En el servidor VPN, agregar rutas estáticas a la subnet 10.0.0.0/24:
+En el servidor VPN, agregar rutas estáticas a la subnet 172.16.0.0/24:
 
 ```bash
 # SSH al servidor
@@ -222,11 +273,11 @@ ssh oracle
 
 # Verificar interfaces de red
 ip addr show
-# → VPN interface: wg0 (10.0.0.1)
+# → VPN interface: wg0 (172.16.0.1)
 # → Docker interface: docker0 (172.17.0.1)
 
 # Agregar ruta Docker ↔ VPN (si es necesario)
-sudo ip route add 10.0.0.0/24 dev wg0
+sudo ip route add 172.16.0.0/24 dev wg0
 sudo ip route add 172.17.0.0/16 dev docker0
 
 # Persistir en /etc/netplan (Debian/Ubuntu) o /etc/network/interfaces
@@ -285,7 +336,7 @@ docker logs -f arquisoft-wireguard
 2. **Verificar configuración:**
    ```bash
    grep "AllowedIPs" /etc/wireguard/dev1.conf
-   # Debe mostrar: AllowedIPs = 10.0.0.0/24
+   # Debe mostrar: AllowedIPs = 172.16.0.0/16
    # NO: AllowedIPs = 0.0.0.0/0
    ```
 
@@ -296,7 +347,7 @@ docker logs -f arquisoft-wireguard
    
    # Cambiar esta línea:
    # AllowedIPs = 0.0.0.0/0     ← ELIMINAR
-   # AllowedIPs = 10.0.0.0/24    ← AGREGAR
+   # AllowedIPs = 172.16.0.0/16    ← AGREGAR
    ```
 
 4. **Guardar y reconectar:**
@@ -322,7 +373,7 @@ ip link show dev1
 # Debe mostrar: <POINTOPOINT,NOARP,UP,LOWER_UP>
 
 # Probar conectividad
-ping 10.0.0.1  # Gateway VPN
+ping 172.16.0.1  # Gateway VPN
 ping 8.8.8.8   # Internet
 ```
 
@@ -359,7 +410,7 @@ bash /tmp/setup-wireguard.sh
 
 ---
 
-### ❌ "No se puede alcanzar BD (10.0.0.254)"
+### ❌ "No se puede alcanzar BD (172.16.1.10)"
 
 **Causas posibles:**
 
@@ -393,10 +444,10 @@ sudo wg show dev1
 # → Debe mostrar "latest handshake" reciente
 
 # 2. Verificar conectividad al gateway
-ping 10.0.0.1
+ping 172.16.0.1
 
 # 3. Intentar conexión a BD
-psql -h 10.0.0.254 -U postgres -c "SELECT 1;"
+psql -h 172.16.1.10 -U postgres -c "SELECT 1;"
 ```
 
 ---
@@ -437,7 +488,7 @@ psql -h 10.0.0.254 -U postgres -c "SELECT 1;"
 4. **Probar latencia:**
    ```bash
    # Ping al gateway
-   ping -c 10 10.0.0.1
+   ping -c 10 172.16.0.1
    # Esperado: < 1ms (conexión local)
    ```
 
@@ -452,7 +503,7 @@ psql -h 10.0.0.254 -U postgres -c "SELECT 1;"
 1. **Verificar DNS está configurado:**
    ```bash
    grep DNS /etc/wireguard/dev1.conf
-   # Debe mostrar: DNS = 10.0.0.1
+   # Debe mostrar: DNS = 172.16.0.1
    ```
 
 2. **Forzar DNS:**
@@ -470,7 +521,7 @@ psql -h 10.0.0.254 -U postgres -c "SELECT 1;"
    sudo nano /etc/wireguard/dev1.conf
    
    # Cambiar DNS:
-   # DNS = 10.0.0.1         ← Interno (si falla)
+   # DNS = 172.16.0.1         ← Interno (si falla)
    # DNS = 8.8.8.8 8.8.4.4  ← Google (si necesitas fallback)
    
    # Reconectar
@@ -498,7 +549,7 @@ echo "3. Internet:"
 ping -c 1 8.8.8.8 && echo "✅ Internet OK" || echo "❌ Sin internet"
 echo ""
 echo "4. Gateway VPN:"
-ping -c 1 10.0.0.1 && echo "✅ Gateway OK" || echo "❌ Sin gateway"
+ping -c 1 172.16.0.1 && echo "✅ Gateway OK" || echo "❌ Sin gateway"
 echo ""
 echo "5. Estado WireGuard:"
 sudo wg show dev1 | head -5
