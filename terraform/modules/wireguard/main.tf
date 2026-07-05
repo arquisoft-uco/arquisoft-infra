@@ -67,12 +67,14 @@ resource "docker_container" "wireguard" {
     "SERVERPORT=${var.wireguard_port}",
     # Peers a generar automáticamente (configs individuales)
     "PEERS=${local.peers_str}",
-    # DNS resolverá a WireGuard (clients usan 10.0.0.1)
-    "PEERDNS=${cidrhost(var.wireguard_subnet, 1)}",
+    # DNS de los configs de cliente. Público por defecto (1.1.1.1) → el DNS del dev
+    # NO se enruta por la VPN (evita dependencia/hijack del resolver interno).
+    "PEERDNS=${var.peer_dns}",
     # Subnet interna de clientes
     "INTERNAL_SUBNET=${var.wireguard_subnet}",
-    # Permitir que clientes se comuniquen con cualquier red (control en firewall)
-    "ALLOWEDIPS=0.0.0.0/0",
+    # AllowedIPs de los configs generados. Split-tunnel por defecto (172.16.0.0/16):
+    # el cliente alcanza VPN + servicios SIN perder su acceso a internet.
+    "ALLOWEDIPS=${var.allowed_ips}",
     # Log de configuraciones generadas
     "LOG_CONFS=true",
   ]

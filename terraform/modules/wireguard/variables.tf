@@ -13,6 +13,18 @@ variable "static_ip" {
   default     = null
 }
 
+variable "allowed_ips" {
+  description = "AllowedIPs de los configs de cliente generados. Split-tunnel (172.16.0.0/16) = alcanza VPN+servicios sin bloquear el internet del cliente. Full-tunnel = 0.0.0.0/0."
+  type        = string
+  default     = "172.16.0.0/16"
+}
+
+variable "peer_dns" {
+  description = "DNS de los configs de cliente. Público (1.1.1.1) evita enrutar el DNS del dev por la VPN; usar el gateway (cidrhost(subnet,1)) solo si se requiere resolver nombres internos."
+  type        = string
+  default     = "1.1.1.1"
+}
+
 variable "domain" {
   description = "Dominio público del servidor VPN (vpn.arquisoft.top)"
   type        = string

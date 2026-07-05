@@ -158,6 +158,8 @@ module "wireguard" {
   peers              = var.wireguard_peers
   max_clients        = var.wireguard_max_clients
   static_ip          = lookup(local.svc_ip, "wireguard", null)
+  allowed_ips        = var.wireguard_allowed_ips  # split-tunnel: no bloquea internet del cliente
+  peer_dns           = var.wireguard_peer_dns     # público: no enruta el DNS del dev por la VPN
 }
 
 # ---------- Preparación de red del servidor (firewall) ----------

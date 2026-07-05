@@ -132,6 +132,18 @@ variable "wireguard_subnet" {
   default     = "172.16.0.0/24"
 }
 
+variable "wireguard_allowed_ips" {
+  description = "AllowedIPs de los configs de cliente generados. Split-tunnel (172.16.0.0/16): alcanza VPN+servicios sin bloquear el internet del dev. Full-tunnel: 0.0.0.0/0."
+  type        = string
+  default     = "172.16.0.0/16"
+}
+
+variable "wireguard_peer_dns" {
+  description = "DNS de los configs de cliente. 1.1.1.1 (público) evita enrutar el DNS del dev por la VPN; usar 172.16.0.1 (gateway) solo si se requiere resolución de nombres internos."
+  type        = string
+  default     = "1.1.1.1"
+}
+
 variable "wireguard_peers" {
   description = "Lista de nombres de clientes VPN a provisionar (ej: dev1, dev2, dev3, ...)"
   type        = list(string)
