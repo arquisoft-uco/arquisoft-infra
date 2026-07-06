@@ -22,6 +22,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     END IF;
   END
   \$\$;
+  -- Privilegio mínimo: el usuario de aplicación NUNCA debe ser superusuario.
+  ALTER ROLE ${APP_USER} NOSUPERUSER NOCREATEROLE NOCREATEDB;
 EOSQL
 
 for db in $DBS; do
