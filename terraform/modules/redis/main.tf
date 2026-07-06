@@ -53,12 +53,15 @@ resource "docker_container" "redis" {
   # `default` = admin (requirepass). El usuario de app tiene ACL de privilegio mínimo:
   # acceso a todas las claves (~*) y canales (&*), todos los comandos EXCEPTO los
   # peligrosos (-@dangerous: FLUSHALL, CONFIG, SHUTDOWN, KEYS, etc.).
+  # `+info` re-otorga solo INFO (read-only): lo necesita el health check de Spring
+  # Boot (RedisHealthIndicator) y no es destructivo. El orden importa: se aplica de
+  # izquierda a derecha (+@all quita @dangerous, luego +info lo vuelve a permitir).
   # `--user ...` debe ir al final: consume todos los tokens hasta el siguiente `--`.
   command = [
     "redis-server",
     "--requirepass", var.redis_password,
     "--appendonly", "yes",
-    "--user", var.redis_app_user, "on", ">${var.redis_app_password}", "~*", "&*", "+@all", "-@dangerous",
+    "--user", var.redis_app_user, "on", ">${var.redis_app_password}", "~*", "&*", "+@all", "-@dangerous", "+info",
   ]
 
   # El healthcheck lee la contraseña por env (no se incrusta en el comando del check).
