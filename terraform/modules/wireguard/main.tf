@@ -67,8 +67,10 @@ resource "docker_container" "wireguard" {
     "SERVERPORT=${var.wireguard_port}",
     # Peers a generar automáticamente (configs individuales)
     "PEERS=${local.peers_str}",
-    # DNS de los configs de cliente. Público por defecto (1.1.1.1) → el DNS del dev
-    # NO se enruta por la VPN (evita dependencia/hijack del resolver interno).
+    # DNS de los configs de cliente. 'auto' → la imagen usa el CoreDNS interno del
+    # gateway (172.16.0.1), alcanzable por el túnel split y que reenvía externas +
+    # resuelve nombres de servicios. Una IP pública aquí ROMPE el DNS: wg-quick crea
+    # el dominio catch-all '~.' y esa IP no está en AllowedIPs (ver variables.tf).
     "PEERDNS=${var.peer_dns}",
     # Subnet interna de clientes
     "INTERNAL_SUBNET=${var.wireguard_subnet}",

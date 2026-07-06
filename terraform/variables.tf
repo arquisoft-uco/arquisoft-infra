@@ -143,9 +143,9 @@ variable "wireguard_allowed_ips" {
 }
 
 variable "wireguard_peer_dns" {
-  description = "DNS de los configs de cliente. 1.1.1.1 (público) evita enrutar el DNS del dev por la VPN; usar 172.16.0.1 (gateway) solo si se requiere resolución de nombres internos."
+  description = "DNS de los configs de cliente. 'auto' = CoreDNS interno del gateway (172.16.0.1): alcanzable por el túnel split, resuelve externas Y nombres de servicios (postgres, redis...). NO usar una IP pública (ej. 1.1.1.1): wg-quick crea un dominio catch-all '~.' que enruta TODO el DNS por el túnel, y una IP pública no está en AllowedIPs → se rompe toda la resolución."
   type        = string
-  default     = "1.1.1.1"
+  default     = "auto"
 }
 
 variable "wireguard_peers" {
