@@ -1,11 +1,16 @@
 {
   "rabbit_version": "3.13.0",
-  "_comment": "El backend (Spring AMQP, RabbitMQConfig + *QueueConfig) declara su propia topología (exchanges arquisoft.events/arquisoft.dlx, colas y bindings) al arrancar. Aquí solo se aprovisiona el usuario y sus permisos sobre el vhost por defecto '/', que es el que usa la imagen del backend.",
+  "_comment": "Dos usuarios: '${RABBITMQ_USER}' (administrator, solo gestión/consola) y '${RABBITMQ_APP_USER}' (aplicación, SIN admin, privilegio mínimo). El backend (Spring AMQP) declara su propia topología (exchanges arquisoft.events/arquisoft.dlx, colas y bindings) al arrancar sobre el vhost por defecto '/', usando el usuario de aplicación.",
   "users": [
     {
       "name": "${RABBITMQ_USER}",
       "password": "${RABBITMQ_PASSWORD}",
       "tags": ["administrator"]
+    },
+    {
+      "name": "${RABBITMQ_APP_USER}",
+      "password": "${RABBITMQ_APP_PASSWORD}",
+      "tags": []
     }
   ],
   "vhosts": [
@@ -16,6 +21,13 @@
   "permissions": [
     {
       "user": "${RABBITMQ_USER}",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "${RABBITMQ_APP_USER}",
       "vhost": "/",
       "configure": ".*",
       "write": ".*",

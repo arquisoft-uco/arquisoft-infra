@@ -65,20 +65,24 @@ variable "enable_server_prep" {
 
 # ---------- Usuarios / identificadores ----------
 # Sin defaults: los valores van en prod.tfvars (gitignoreado) para no exponerlos en el repo.
-variable "postgres_user"      { type = string }
-variable "postgres_db"        { type = string }
-variable "app_db_user"        { type = string }
+variable "postgres_user" { type = string }
+variable "postgres_db" { type = string }
+variable "app_db_user" { type = string }
 variable "keycloak_admin_user" { type = string }
-variable "keycloak_db_user"   { type = string }
-variable "keycloak_db_name"   { type = string }
-variable "keycloak_realm"     { type = string }
+variable "keycloak_db_user" { type = string }
+variable "keycloak_db_name" { type = string }
+variable "keycloak_realm" { type = string }
 variable "keycloak_client_id" { type = string }
-variable "rabbitmq_user"      { type = string }
+variable "rabbitmq_user" { type = string }
 variable "rabbitmq_vhost" {
   description = "vhost de RabbitMQ. La imagen del backend usa el vhost por defecto '/'."
   type        = string
 }
-variable "minio_root_user"    { type = string }
+# Usuario de aplicación (backend) — sin tag administrator, privilegio mínimo en el vhost.
+variable "rabbitmq_app_user" { type = string }
+# Usuario de aplicación (backend) para Redis vía ACL — default = admin (requirepass).
+variable "redis_app_user" { type = string }
+variable "minio_root_user" { type = string }
 variable "minio_access_key" {
   description = "Access key de la cuenta de servicio del backend en MinIO"
   type        = string

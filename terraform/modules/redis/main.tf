@@ -17,6 +17,13 @@ variable "redis_password" {
   type      = string
   sensitive = true
 }
+# Usuario de aplicación (backend) vía ACL nativo de Redis 7. El usuario `default`
+# (requirepass) queda como admin; este usuario tiene privilegio mínimo.
+variable "redis_app_user" { type = string }
+variable "redis_app_password" {
+  type      = string
+  sensitive = true
+}
 variable "expose_ports" {
   description = "Exponer puerto 6379 directamente en el host (solo dev)"
   type        = bool
@@ -43,7 +50,16 @@ resource "docker_container" "redis" {
   memory  = 256
   cpus    = "0.5"
 
-  command = ["redis-server", "--requirepass", var.redis_password, "--appendonly", "yes"]
+  # `default` = admin (requirepass). El usuario de app tiene ACL de privilegio mínimo:
+  # acceso a todas las claves (~*) y canales (&*), todos los comandos EXCEPTO los
+  # peligrosos (-@dangerous: FLUSHALL, CONFIG, SHUTDOWN, KEYS, etc.).
+  # `--user ...` debe ir al final: consume todos los tokens hasta el siguiente `--`.
+  command = [
+    "redis-server",
+    "--requirepass", var.redis_password,
+    "--appendonly", "yes",
+    "--user", var.redis_app_user, "on", ">${var.redis_app_password}", "~*", "&*", "+@all", "-@dangerous",
+  ]
 
   # El healthcheck lee la contraseña por env (no se incrusta en el comando del check).
   env = ["REDIS_PASSWORD=${var.redis_password}"]

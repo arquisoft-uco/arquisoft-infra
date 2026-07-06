@@ -51,3 +51,15 @@ output "admin_auth_password" {
   value       = module.secrets.values["admin_auth_password"]
   sensitive   = true
 }
+
+# Credenciales de APLICACIÓN (backend) — privilegio mínimo, separadas de las admin.
+output "rabbitmq_app_password" {
+  description = "Password del usuario de aplicación de RabbitMQ (sin admin)"
+  value       = module.secrets.values["rabbitmq_app_password"]
+  sensitive   = true
+}
+output "redis_app_password" {
+  description = "Password del usuario ACL de aplicación de Redis (sin comandos peligrosos)"
+  value       = module.secrets.values["redis_app_password"]
+  sensitive   = true
+}

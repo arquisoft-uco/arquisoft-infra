@@ -28,6 +28,12 @@ variable "rabbitmq_password" {
   sensitive = true
 }
 variable "rabbitmq_vhost" { type = string }
+# Usuario de aplicación (backend): sin tag administrator, privilegio mínimo en el vhost.
+variable "rabbitmq_app_user" { type = string }
+variable "rabbitmq_app_password" {
+  type      = string
+  sensitive = true
+}
 variable "expose_ports" {
   description = "Exponer puertos 5672 (AMQP) y 15672 (UI) directamente en el host (solo dev)"
   type        = bool
@@ -86,8 +92,10 @@ resource "docker_container" "rabbitmq" {
   upload {
     file = "/etc/rabbitmq/definitions.json"
     content = templatefile("${var.component_dir}/config/definitions.json.template", {
-      RABBITMQ_USER     = var.rabbitmq_user
-      RABBITMQ_PASSWORD = var.rabbitmq_password
+      RABBITMQ_USER         = var.rabbitmq_user
+      RABBITMQ_PASSWORD     = var.rabbitmq_password
+      RABBITMQ_APP_USER     = var.rabbitmq_app_user
+      RABBITMQ_APP_PASSWORD = var.rabbitmq_app_password
     })
   }
 

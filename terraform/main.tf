@@ -58,24 +58,44 @@ module "postgres" {
   static_ip         = lookup(local.svc_ip, "postgres", null)
 }
 
+# Fix de privilegio mínimo sobre el volumen YA existente: el init script solo corre
+# al crear el volumen, así que este recurso degrada al usuario de aplicación de
+# superusuario a rol acotado en cada apply (idempotente). Corre donde ejecuta
+# Terraform (el servidor), que es donde vive el contenedor.
+resource "null_resource" "postgres_app_least_privilege" {
+  depends_on = [module.postgres]
+
+  triggers = {
+    app_user = var.app_db_user
+  }
+
+  provisioner "local-exec" {
+    command = "docker exec arquisoft-postgres psql -U ${var.postgres_user} -v ON_ERROR_STOP=1 -c \"ALTER ROLE ${var.app_db_user} NOSUPERUSER NOCREATEROLE NOCREATEDB;\""
+  }
+}
+
 module "redis" {
-  source         = "./modules/redis"
-  network_name   = module.network.name
-  redis_password = local.secrets["redis_password"]
-  expose_ports   = var.expose_data_ports
-  static_ip      = lookup(local.svc_ip, "redis", null)
+  source             = "./modules/redis"
+  network_name       = module.network.name
+  redis_password     = local.secrets["redis_password"]
+  redis_app_user     = var.redis_app_user
+  redis_app_password = local.secrets["redis_app_password"]
+  expose_ports       = var.expose_data_ports
+  static_ip          = lookup(local.svc_ip, "redis", null)
 }
 
 module "rabbitmq" {
-  source            = "./modules/rabbitmq"
-  network_name      = module.network.name
-  component_dir     = "${local.components_dir}/rabbitmq"
-  domain            = var.domain
-  rabbitmq_user     = var.rabbitmq_user
-  rabbitmq_password = local.secrets["rabbitmq_password"]
-  rabbitmq_vhost    = var.rabbitmq_vhost
-  expose_ports      = var.expose_data_ports
-  static_ip         = lookup(local.svc_ip, "rabbitmq", null)
+  source                = "./modules/rabbitmq"
+  network_name          = module.network.name
+  component_dir         = "${local.components_dir}/rabbitmq"
+  domain                = var.domain
+  rabbitmq_user         = var.rabbitmq_user
+  rabbitmq_password     = local.secrets["rabbitmq_password"]
+  rabbitmq_vhost        = var.rabbitmq_vhost
+  rabbitmq_app_user     = var.rabbitmq_app_user
+  rabbitmq_app_password = local.secrets["rabbitmq_app_password"]
+  expose_ports          = var.expose_data_ports
+  static_ip             = lookup(local.svc_ip, "rabbitmq", null)
 }
 
 module "minio" {
@@ -93,20 +113,20 @@ module "minio" {
 
 # ---------- Identidad ----------
 module "keycloak" {
-  source                 = "./modules/keycloak"
-  network_name           = module.network.name
-  component_dir          = "${local.components_dir}/keycloak"
-  domain                 = var.domain
-  realm_name             = var.keycloak_realm
-  admin_user             = var.keycloak_admin_user
-  admin_password         = local.secrets["keycloak_admin_password"]
-  db_user                = var.keycloak_db_user
-  db_name                = var.keycloak_db_name
-  db_password            = local.secrets["keycloak_db_password"]
-  client_id              = var.keycloak_client_id
-  client_secret          = local.secrets["keycloak_client_secret"]
-  kc_db_static_ip        = lookup(local.svc_ip, "keycloak_db", null)
-  keycloak_static_ip     = lookup(local.svc_ip, "keycloak", null)
+  source             = "./modules/keycloak"
+  network_name       = module.network.name
+  component_dir      = "${local.components_dir}/keycloak"
+  domain             = var.domain
+  realm_name         = var.keycloak_realm
+  admin_user         = var.keycloak_admin_user
+  admin_password     = local.secrets["keycloak_admin_password"]
+  db_user            = var.keycloak_db_user
+  db_name            = var.keycloak_db_name
+  db_password        = local.secrets["keycloak_db_password"]
+  client_id          = var.keycloak_client_id
+  client_secret      = local.secrets["keycloak_client_secret"]
+  kc_db_static_ip    = lookup(local.svc_ip, "keycloak_db", null)
+  keycloak_static_ip = lookup(local.svc_ip, "keycloak", null)
 }
 
 # ---------- Observabilidad ----------
@@ -148,18 +168,18 @@ module "alloy" {
 
 # ---------- VPN (WireGuard) — Acceso seguro a infraestructura ----------
 module "wireguard" {
-  source             = "./modules/wireguard"
-  network_name       = module.network.name
-  domain             = var.domain
-  wireguard_port     = var.wireguard_port
-  wireguard_subnet   = var.wireguard_subnet
-  timezone           = var.timezone
-  expose_vpn_port    = var.expose_vpn_port  # VPN pública (punto de entrada seguro), independiente de los puertos de datos
-  peers              = var.wireguard_peers
-  max_clients        = var.wireguard_max_clients
-  static_ip          = lookup(local.svc_ip, "wireguard", null)
-  allowed_ips        = var.wireguard_allowed_ips  # split-tunnel: no bloquea internet del cliente
-  peer_dns           = var.wireguard_peer_dns     # público: no enruta el DNS del dev por la VPN
+  source           = "./modules/wireguard"
+  network_name     = module.network.name
+  domain           = var.domain
+  wireguard_port   = var.wireguard_port
+  wireguard_subnet = var.wireguard_subnet
+  timezone         = var.timezone
+  expose_vpn_port  = var.expose_vpn_port # VPN pública (punto de entrada seguro), independiente de los puertos de datos
+  peers            = var.wireguard_peers
+  max_clients      = var.wireguard_max_clients
+  static_ip        = lookup(local.svc_ip, "wireguard", null)
+  allowed_ips      = var.wireguard_allowed_ips # split-tunnel: no bloquea internet del cliente
+  peer_dns         = var.wireguard_peer_dns    # público: no enruta el DNS del dev por la VPN
 }
 
 # ---------- Preparación de red del servidor (firewall) ----------
