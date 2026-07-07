@@ -225,11 +225,11 @@ docker exec wireguard-db-server wg show wg0
 
 ### Acceder a servicios en nodo remoto
 ```bash
-# PostgreSQL desde cliente VPN
-psql -h 172.16.1.5 -U arquisoft_user -d arquisoft
+# PostgreSQL desde cliente VPN (usuario de app; una BD por bounded context)
+psql -h 172.16.1.10 -U arquisoft_user -d usuarios
 
-# Redis desde cliente VPN
-redis-cli -h 172.16.1.6
+# Redis desde cliente VPN (usuario ACL de app)
+redis-cli -h 172.16.1.12 --user arquisoft_backend
 
 # Grafana desde navegador
 # http://172.16.2.10:3000

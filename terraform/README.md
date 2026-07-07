@@ -59,7 +59,12 @@ Se generan automáticamente. Para consultarlos:
 terraform output -raw grafana_admin_password
 terraform output -raw keycloak_admin_password
 terraform output -raw admin_auth_password
+terraform output -raw rabbitmq_app_password    # usuario de app del backend
+terraform output -raw redis_app_password       # usuario ACL del backend
 ```
+Cada servicio de datos expone **dos** credenciales: **admin/root** (consola/administración) y
+**aplicación** (privilegio mínimo, la que usa el backend). Ver la tabla del modelo de acceso en
+**[DESPLIEGUE.md](DESPLIEGUE.md)** → *Modelo de acceso*.
 Migración a **Key Vault**: alimentar `var.provided_secrets` (mapa nombre→secreto) desde data
 sources (`vault_generic_secret` / `azurerm_key_vault_secret` / `aws_secretsmanager_secret_version`).
 El módulo `secrets` usa esos valores en vez de generarlos, sin tocar a los consumidores.

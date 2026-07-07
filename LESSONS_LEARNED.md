@@ -309,6 +309,28 @@ Azure:  module "wireguard_node_azure" { ... }
 
 ---
 
+## 🌐 Lección clave: DNS y split-tunnel ("pierdo internet al conectar")
+
+**Síntoma:** al conectar la VPN no resuelve ningún dominio (github.com, google.com) aunque la
+conectividad por IP funcione — se siente como "sin internet".
+
+**Causa raíz:** una línea `DNS = <ip>` en el peer `.conf` hace que `wg-quick` + `systemd-resolved`
+marquen la interfaz con el dominio catch-all `~.` → TODAS las consultas DNS se enrutan por el túnel.
+Con split-tunnel (`AllowedIPs = 172.16.0.0/16`), si ese DNS es una IP **pública** (ej. `1.1.1.1`)
+NO está en la ruta del túnel → toda la resolución falla. (El esquema viejo con `DNS = 10.0.2.1`
+interno tenía el mismo efecto tras quedar inexistente por la migración.)
+
+**Fix definitivo:** `wireguard_peer_dns = "auto"` → la imagen usa el CoreDNS interno del gateway
+(`172.16.0.1`), alcanzable por el túnel, que reenvía externas (`forward . /etc/resolv.conf`) y
+resuelve nombres de servicios. Diagnóstico: `resolvectl status dev1` (`DNS Domain: ~.`),
+`resolvectl query github.com`. Temporal en cliente: `sudo resolvectl domain dev1 ''`.
+
+**Lección:** en split-tunnel, el DNS del peer debe apuntar a un resolver alcanzable DENTRO del
+túnel (el gateway), nunca a una IP pública. Y el `.conf` se trae SIEMPRE del servidor (fuente de
+verdad): las copias locales viejas reproducen este fallo.
+
+---
+
 ## 📚 Referencias
 
 - **WireGuard Official:** https://www.wireguard.com/

@@ -61,13 +61,17 @@ keycloak_client_id  = "arquisoft-api"
 keycloak_db_user    = "keycloak"
 keycloak_db_name    = "keycloak"
 
-# ---------- RabbitMQ ----------
-rabbitmq_user     = "guest"
-rabbitmq_vhost    = "/"           # el backend usa el vhost por defecto '/'
+# ---------- RabbitMQ (modelo admin + app) ----------
+rabbitmq_user     = "arquisoft_admin"    # admin (consola de gestión)
+rabbitmq_app_user = "arquisoft_backend"  # usuario de app (sin tag admin), el que usa el backend
+rabbitmq_vhost    = "/"                   # el backend usa el vhost por defecto '/'
+
+# ---------- Redis ----------
+redis_app_user    = "arquisoft_backend"  # usuario ACL de app (el 'default' es admin vía requirepass)
 
 # ---------- MinIO ----------
-minio_root_user   = "minioadmin"
-minio_access_key  = "minioadmin"  # access key de la cuenta de servicio del backend
+minio_root_user   = "minioadmin"         # root (consola)
+minio_access_key  = "arquisoft-backend"  # cuenta de servicio del backend — NO igual a minio_root_user (colisiona con el root)
 
 # ---------- Grafana / consolas admin ----------
 grafana_admin_user = "admin"

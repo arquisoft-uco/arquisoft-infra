@@ -45,8 +45,10 @@ arquisoft-infra/
 ## Modelo de datos
 El backend usa **7 bases de datos por bounded context** (no esquemas):
 `usuarios`, `fichas_perfil`, `artefactos`, `repositorio_artefactos`, `proyectos_grado`,
-`entregables`, `evaluaciones` (usuario `arquisoft_user`). La BD de Keycloak es **dedicada**
-(componente `keycloak`), separada del PostgreSQL de la aplicación.
+`entregables`, `evaluaciones` (usuario de app `arquisoft_user`, `NOSUPERUSER`; el superusuario es
+`postgres`). La BD de Keycloak es **dedicada** (componente `keycloak`), separada del PostgreSQL de
+la aplicación. Cada servicio de datos sigue el modelo **admin/root + usuario de app** (ver
+[terraform/DESPLIEGUE.md](terraform/DESPLIEGUE.md) → *Modelo de acceso*).
 
 ## Documentación
 - [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md) — single-server y multi-servidor, firewall, DNS.

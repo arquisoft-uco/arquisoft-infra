@@ -185,11 +185,27 @@ terraform output -raw admin_auth_password       # BasicAuth del dashboard de Tra
 
 Claves disponibles en el mapa `secrets`:
 `postgres_password`, `app_db_password`, `keycloak_db_password`, `keycloak_admin_password`,
-`keycloak_client_secret`, `redis_password`, `rabbitmq_password`, `minio_root_password`,
-`minio_secret_key`, `grafana_admin_password`, `admin_auth_password`.
+`keycloak_client_secret`, `redis_password`, `redis_app_password`, `rabbitmq_password`,
+`rabbitmq_app_password`, `minio_root_password`, `minio_secret_key`, `grafana_admin_password`,
+`admin_auth_password`.
 
-**Usuarios admin** (el valor es la clave correspondiente): Keycloak / Grafana / dashboard Traefik =
-`admin`; RabbitMQ / MinIO = `arquisoft` (ajustables en el `.tfvars`).
+### Modelo de acceso: credencial admin/root + credencial de aplicación (privilegio mínimo)
+
+Cada servicio de datos expone **dos** credenciales: una **admin/root** (administración/consola) y
+una de **aplicación** (la que usa el backend) con **privilegios mínimos**. El identificador (usuario /
+access-key / client-id) va en `terraform.tfvars`; el secreto lo genera y rota el módulo `secrets`.
+
+| Servicio | Admin / root | Aplicación (backend) | Secreto de app |
+|----------|--------------|----------------------|----------------|
+| PostgreSQL | `postgres` (superuser) | `arquisoft_user` (NOSUPERUSER) | `app_db_password` |
+| RabbitMQ | `arquisoft_admin` (administrator) | `arquisoft_backend` (sin tag admin) | `rabbitmq_app_password` |
+| Redis | `default` (requirepass) | `arquisoft_backend` (ACL `+@all -@dangerous +info`) | `redis_app_password` |
+| MinIO | `minioadmin` (root) | `arquisoft-backend` (policy `readwrite`) | `minio_secret_key` |
+| Keycloak | `admin` (consola) | client OIDC `arquisoft-api` | `keycloak_client_secret` |
+
+**Consolas admin** (usuario entre paréntesis): Keycloak / Grafana / dashboard Traefik = `admin`;
+MinIO = `minioadmin`; RabbitMQ = `arquisoft_admin`. Ajustables en el `.tfvars`.
+El **backend siempre usa las credenciales de aplicación**, nunca las admin.
 
 > Seguridad: no vuelques todo a una terminal compartida. Para copiar una clave sin imprimirla:
 > `terraform output -raw grafana_admin_password | xclip -selection clipboard` (o `wl-copy`/`pbcopy`).

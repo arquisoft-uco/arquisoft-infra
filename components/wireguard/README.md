@@ -99,9 +99,15 @@ Los peers se definen en `terraform.tfvars` (`wireguard_peers`); el contenedor
 
 4. **Enviar tal cual — ya no hace falta ajustar.** El contenedor genera la config
    con `AllowedIPs = 172.16.0.0/16` (split-tunnel: VPN + servicios sin perder
-   internet) y `DNS = 1.1.1.1` (público: no enruta el DNS del dev por la VPN), vía
-   las variables `wireguard_allowed_ips` / `wireguard_peer_dns`. El `Endpoint` ya
+   internet) y `DNS = 172.16.0.1` (CoreDNS interno del gateway: resuelve dominios
+   externos **y** nombres de servicios, alcanzable por el túnel), vía las variables
+   `wireguard_allowed_ips` / `wireguard_peer_dns` (default `auto`). El `Endpoint` ya
    apunta a `arquisoft.top:51820`.
+
+   > ⚠️ NO poner una IP pública (ej. `1.1.1.1`) en `wireguard_peer_dns`: `wg-quick`
+   > crea un dominio catch-all `~.` que enruta TODO el DNS por el túnel, y una IP
+   > pública NO está en `AllowedIPs` → se rompe toda la resolución al conectar.
+   > Con `auto` (→ `172.16.0.1`) el DNS sí es alcanzable por el túnel.
 
 5. **Enviar por canal SEGURO** — la config contiene la llave privada del dev. NO en
    claro por email/Slack; usar cifrado o un gestor de secretos.
@@ -325,9 +331,20 @@ docker logs -f arquisoft-wireguard
 
 ### ❌ "Pierdo Internet Cuando Conecto la VPN"
 
-**Causa:** `AllowedIPs = 0.0.0.0/0` redirige TODO el tráfico por VPN.
+Dos causas posibles:
 
-**Solución:**
+**Causa A — DNS (la más común aquí):** una línea `DNS =` con una IP **pública** (ej. `1.1.1.1`).
+`wg-quick` + `systemd-resolved` crean un dominio catch-all `~.` que enruta TODO el DNS por el túnel;
+como es split-tunnel, esa IP pública no es alcanzable → **nada resuelve** (ni `github.com`), aunque
+la conectividad IP siga funcionando. Diagnóstico: `resolvectl status dev1` muestra `DNS Domain: ~.`
+y `resolvectl query github.com` falla.
+- **Fix de infra (definitivo):** `wireguard_peer_dns = "auto"` → el `.conf` sale con `DNS = 172.16.0.1`
+  (CoreDNS interno, alcanzable por el túnel, reenvía externas). Reinstala el `.conf` del servidor y reconecta.
+- **Fix temporal (cliente):** `sudo resolvectl domain dev1 ''` (quita el `~.`; se pierde al reconectar).
+
+**Causa B — routing:** `AllowedIPs = 0.0.0.0/0` redirige TODO el tráfico por VPN.
+
+**Solución (causa B):**
 
 1. **Desconectar inmediatamente:**
    ```bash

@@ -9,6 +9,12 @@ La BD de Keycloak **no** está aquí — vive en el componente `keycloak` (insta
 
 Cada una con extensiones `uuid-ossp` y `pg_trgm`, y `public` owner del usuario de app.
 
+## Usuarios (modelo admin + app)
+El superusuario es `postgres`; `arquisoft_user` es el usuario de **aplicación** con privilegio
+mínimo (`NOSUPERUSER NOCREATEROLE NOCREATEDB`). Lo fija el init script en volúmenes nuevos y, sobre
+volúmenes ya existentes, `null_resource.postgres_app_least_privilege` lo reaplica en cada `apply`.
+El backend se conecta **siempre** como `arquisoft_user`, nunca como `postgres`.
+
 ## Inicialización
 `init/01-init-databases.sh` corre **una sola vez** al crear el volumen. Toma la contraseña
 del usuario de app desde `APP_DB_PASSWORD`. Para reinicializar: eliminar el volumen

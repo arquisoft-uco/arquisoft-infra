@@ -27,33 +27,37 @@ Solicita el archivo `peer_dev1.conf` a tu líder técnico (vía email, Slack, et
 
 ```ini
 [Interface]
-Address = 172.16.0.2
-PrivateKey = IGmsBi9i3VAkcoOtFKOgj41/Daz0+DZYBgXsXWXxCWM=
+Address = 172.16.0.2                    # tu IP asignada (172.16.0.x)
+PrivateKey = <clave-privada-del-peer>
 ListenPort = 51820
-DNS = 1.1.1.1
+DNS = 172.16.0.1                        # CoreDNS interno (NO una IP pública)
 
 [Peer]
-PublicKey = 2UB/fw+9tJ9ubCxNZDsntrBw/gNRKrdelTnaijERTjE=
-PresharedKey = VfujI7ybCZhpX7DvlBnciQl+h9vbRghvPdJI2BG5LYY=
+PublicKey = <clave-pública-del-servidor>
+PresharedKey = <preshared-key>
 Endpoint = arquisoft.top:51820
 AllowedIPs = 172.16.0.0/16
 ```
 
-⚠️ **CRÍTICO:** Línea 12 DEBE ser `AllowedIPs = 172.16.0.0/16` (NO `0.0.0.0/0`)
+⚠️ **CRÍTICO:**
+- `AllowedIPs = 172.16.0.0/16` (NO `0.0.0.0/0`).
+- `DNS = 172.16.0.1` (CoreDNS interno). **NO** una IP pública como `1.1.1.1`: rompería tu DNS al
+  conectar (ver "Pierdo Internet al Conectar"). El servidor ya lo genera bien con `peer_dns=auto`.
 
-### PASO 3: Copiar a Sistema
+### PASO 3: Instalar en el Sistema
 
+**Recomendado — traer el `.conf` directo del servidor** (fuente de verdad; evita copias locales
+desactualizadas, causa típica del "pierdo internet"). Requiere acceso SSH (`ssh oracle` o equiv.):
 ```bash
-# Crear directorio si no existe
-mkdir -p ~/.wireguard
+ssh oracle 'docker exec arquisoft-wireguard cat /config/peer_dev1/peer_dev1.conf' \
+  | sudo tee /etc/wireguard/dev1.conf >/dev/null
+sudo chmod 600 /etc/wireguard/dev1.conf
+```
+Este mismo comando es el **procedimiento de refresco** cuando el servidor regenera claves/DNS.
 
-# Copiar archivo (si está en ~/Downloads)
-cp ~/Downloads/peer_dev1.conf ~/.wireguard/
-
-# Copiar a directorio del sistema
-sudo cp ~/.wireguard/peer_dev1.conf /etc/wireguard/dev1.conf
-
-# Ajustar permisos (importante)
+**Alternativo — si te pasaron el archivo:**
+```bash
+sudo cp ~/Downloads/peer_dev1.conf /etc/wireguard/dev1.conf
 sudo chmod 600 /etc/wireguard/dev1.conf
 ```
 
@@ -136,11 +140,17 @@ sudo systemctl start wg-quick@dev1
 
 ### "Pierdo Internet al Conectar"
 
+**Causa más común — DNS.** Si el `.conf` trae `DNS = 1.1.1.1` (IP pública), `wg-quick` crea el
+dominio catch-all `~.` y enruta TODO el DNS por el túnel split → no resuelve nada (`resolvectl
+query github.com` falla), aunque la conectividad IP siga. Fix definitivo (infra):
+`wireguard_peer_dns = "auto"` → el `.conf` sale con `DNS = 172.16.0.1`; reinstala el `.conf` del
+servidor (PASO 3) y reconecta. Temporal: `sudo resolvectl domain dev1 ''`.
+
+**Otra causa — routing** (`AllowedIPs = 0.0.0.0/0`):
 ```bash
 sudo wg-quick down dev1
 sudo nano /etc/wireguard/dev1.conf
-# Cambiar: AllowedIPs = 0.0.0.0/0
-# A esto: AllowedIPs = 172.16.0.0/16
+# Cambiar: AllowedIPs = 0.0.0.0/0  →  AllowedIPs = 172.16.0.0/16
 sudo wg-quick up dev1
 ```
 
@@ -171,8 +181,8 @@ sudo wg show dev1
 # 2. Probar ping
 ping 172.16.0.1
 
-# 3. Intentar conexión
-psql -h 172.16.1.10 -U postgres -c "SELECT 1;"
+# 3. Intentar conexión (usuario de app; ver credenciales con terraform output)
+psql -h 172.16.1.10 -U arquisoft_user -d usuarios -c "SELECT 1;"
 ```
 
 ---

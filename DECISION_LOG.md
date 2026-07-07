@@ -372,6 +372,24 @@ Overall score: Mantenibilidad >> Performance micro
 
 ---
 
+## ADR-013: PEERDNS=auto (CoreDNS interno) para el DNS de los peers ✅
+
+**Contexto:** con `DNS = 1.1.1.1` (IP pública) en los peer `.conf`, wg-quick + systemd-resolved
+enrutan TODO el DNS por el túnel split (dominio catch-all `~.`), y 1.1.1.1 no está en `AllowedIPs`
+→ el cliente pierde toda resolución (incluido github.com) al conectar.
+
+**Decisión:** `wireguard_peer_dns = "auto"`. La imagen linuxserver SIEMPRE escribe una línea DNS;
+con `auto` usa `${INTERFACE}.1` = `172.16.0.1` (CoreDNS interno del gateway), alcanzable por el
+túnel y que reenvía externas + resuelve nombres de servicios (postgres, redis...).
+
+**Alternativas descartadas:** (a) IP pública → rompe el DNS (era el bug). (b) Omitir la línea DNS
+→ la imagen no lo soporta. (c) `resolvectl domain dev1 ''` en cliente → solo temporal.
+
+**Consecuencias:** el DNS del cliente pasa por la VPN mientras está conectado (aceptable para
+acceso a infra; bonus: servicios por nombre). Commit `ebe6eb7`.
+
+---
+
 ## 🔮 Decisiones Futuras
 
 ### ADR-010: Multi-Region (Candidata)
