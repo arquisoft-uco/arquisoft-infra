@@ -143,6 +143,9 @@ resource "docker_container" "keycloak" {
 
   # Realm renderizado con replace() para compatibilidad con los ${...} internos de Keycloak
   # (i18n keys como ${role_*}, ${authBaseUrl}, etc.) que templatefile() no puede ignorar.
+  # No se usa un provider de Keycloak (mrparkers/keycloak, keycloak/keycloak): clients, roles
+  # y protocol mappers (p.ej. Audience) se gestionan en config/realm-arquisoft.json.template,
+  # importado por Keycloak vía --import-realm. Editar ahí, no como recurso Terraform aparte.
   upload {
     file = "/opt/keycloak/data/import/realm-arquisoft.json"
     content = replace(replace(replace(replace(
