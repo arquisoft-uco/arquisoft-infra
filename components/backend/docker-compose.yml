@@ -75,9 +75,12 @@ services:
     labels:
       # Label que usa Alloy para capturar los logs de este contenedor
       - "monitoring=arquisoft-backend"
-      # Routing público del API
+      # Routing público del API. Se excluye /api/actuator: esa telemetría la
+      # consume Alloy por la red interna, y sin la exclusión el permitAll de
+      # /actuator/prometheus (SeguridadConfig, repo arquisoft-backend) dejaría
+      # las métricas visibles en internet.
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN}`) && !PathPrefix(`/api/actuator`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
