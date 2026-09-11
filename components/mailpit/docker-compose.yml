@@ -1,0 +1,111 @@
+# =============================================================================
+# Componente: mailpit (servidor SMTP de PRUEBAS + bandeja web) — AISLADO
+# =============================================================================
+# Captura todo el correo que emite arquisoft-backend y lo muestra en una bandeja
+# web. NO entrega correo real: es un buzón de pruebas.
+#
+# IMPORTANTE — servicio auxiliar, NO forma parte del despliegue final:
+#   * No está en ALL_COMPONENTS de deploy.sh.
+#   * No usa el .env de la raíz: lee su propio .env de esta carpeta.
+#   * Se levanta y se gestiona por su cuenta (ver README.md).
+# Está pensado para sustituirse más adelante por un proveedor de correo real.
+#
+# Sí se une a arquisoft-network para que el backend lo alcance por nombre de
+# servicio (mailpit:1025). El puerto SMTP NUNCA se publica al host: solo es
+# accesible desde dentro de la red Docker.
+#
+#   cd components/mailpit
+#   cp .env.example .env      # y rellenar las credenciales
+#   ./setup.sh                # genera config/*-auth.txt desde el .env
+#   docker compose up -d
+# =============================================================================
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1.31.1
+    container_name: arquisoft-mailpit
+    restart: always
+
+    # Se usan flags explícitos en vez de variables MP_*: son la interfaz
+    # documentada y estable de Mailpit.
+    command:
+      - --database=/data/mailpit.db
+      # Retención: descarta lo más antiguo al superar el límite, de modo que el
+      # volumen no crece sin control.
+      - --max=${MAILPIT_MAX_MESSAGES:-2000}
+      - --max-age=${MAILPIT_MAX_AGE:-168h}
+      # Autenticación SMTP (el backend se conecta con MAIL_USERNAME/MAIL_PASSWORD).
+      - --smtp-auth-file=/etc/mailpit/smtp-auth.txt
+      # Sin esto Mailpit RECHAZA AUTH PLAIN/LOGIN sobre conexión sin cifrar,
+      # que es justo el caso del backend (MAIL_SMTP_STARTTLS=false).
+      - --smtp-auth-allow-insecure
+      # Autenticación de la bandeja web y de la API. Propia del componente: no
+      # depende del .htpasswd compartido de Traefik. Cubre también el acceso
+      # desde dentro de arquisoft-network, no solo el que entra por el proxy.
+      - --ui-auth-file=/etc/mailpit/ui-auth.txt
+
+    environment:
+      TZ: ${TIMEZONE:-America/Bogota}
+
+    volumes:
+      # Base SQLite con los mensajes capturados (sobrevive a reinicios).
+      - mailpit-data:/data
+      # Credenciales SMTP y de la bandeja: generadas por ./setup.sh, gitignored.
+      - ./config/smtp-auth.txt:/etc/mailpit/smtp-auth.txt:ro
+      - ./config/ui-auth.txt:/etc/mailpit/ui-auth.txt:ro
+
+    networks:
+      - arquisoft-network
+
+    # El puerto SMTP (1025) NO se publica: solo se alcanza desde la red Docker.
+    # La bandeja web (8025) se expone únicamente vía Traefik.
+
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mailpit.rule=Host(`mailpit.${DOMAIN:?DOMAIN requerido - ver .env de esta carpeta}`)"
+      - "traefik.http.routers.mailpit.entrypoints=websecure"
+      - "traefik.http.routers.mailpit.tls=true"
+      - "traefik.http.routers.mailpit.tls.certresolver=letsencrypt"
+      # La bandeja contiene enlaces de activación, restablecimiento de contraseña
+      # y tokens: nunca puede quedar pública. La autenticación la aplica el propio
+      # Mailpit (--ui-auth-file), no el middleware admin-auth@file, para que el
+      # componente sea autónomo y para cubrir también el acceso interno por la red.
+      #
+      # Sin secure-headers@file a propósito: ese middleware fuerza
+      # X-Frame-Options: DENY y Mailpit previsualiza cada correo dentro de un
+      # <iframe>, con lo que rompería la bandeja (mismo motivo documentado en
+      # keycloak).
+      - "traefik.http.services.mailpit.loadbalancer.server.port=8025"
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+networks:
+  arquisoft-network:
+    external: true
+
+volumes:
+  mailpit-data:
+    name: arquisoft-mailpit-data

@@ -48,3 +48,8 @@ terraform/.terraform/
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/terraform.tfstate.d/
+
+# mailpit (servicio auxiliar aislado): .env local y credenciales SMTP generadas
+components/mailpit/.env
+components/mailpit/config/smtp-auth.txt
+components/mailpit/config/ui-auth.txt

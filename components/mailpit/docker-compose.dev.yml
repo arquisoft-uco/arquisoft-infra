@@ -1,0 +1,16 @@
+# =============================================================================
+# Componente: mailpit — overlay DESARROLLO
+# =============================================================================
+# Sin Traefik ni TLS: publica los puertos en el loopback para usarlos directo.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#   Bandeja web -> http://127.0.0.1:8025   SMTP -> 127.0.0.1:1025
+# =============================================================================
+
+services:
+  mailpit:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+    labels:
+      - "traefik.enable=false"
