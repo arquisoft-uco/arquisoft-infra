@@ -41,56 +41,71 @@ componente. El certificado se emite localmente en cada nodo.
 
 ## Notas operativas
 
-### Los archivos de configuración son generados — no están en git
+### Quién gestiona realmente este componente
 
-`deploy.sh prepare_component proxy` genera dos archivos desde el `.env` de la raíz:
+En el despliegue actual **Traefik lo gestiona Terraform**, no `docker compose`:
+`terraform/modules/proxy/main.tf` define `docker_container.traefik`. La configuración
+**no se monta por bind mount**: se inyecta dentro del contenedor con bloques `upload`.
 
-| Generado | Desde | Requiere |
-|----------|-------|----------|
-| `config/traefik.yml` | `config/traefik.yml.template` | `ACME_EMAIL` |
-| `config/dynamic/.htpasswd` | hash apr1 de la contraseña | `ADMIN_AUTH_USER`, `ADMIN_AUTH_PASSWORD` |
+| Archivo dentro del contenedor | Origen en Terraform |
+|-------------------------------|---------------------|
+| `/etc/traefik/traefik.yml` | `templatefile(config/traefik.yml.template, { ACME_EMAIL })` |
+| `/etc/traefik/dynamic/middlewares.yml` | `file(config/dynamic/middlewares.yml)` |
+| `/etc/traefik/dynamic/.htpasswd` | `"${var.admin_user}:${var.admin_bcrypt}"` |
 
-Ambos están gitignored. **Nunca recrear el contenedor sin haberlos generado antes**: el
-compose los monta por bind mount y, si no existen en disco, Traefik arranca sin resolver
-ACME ni middlewares y el enrutamiento de toda la plataforma deja de funcionar. La forma
-segura de levantarlo es siempre `./deploy.sh prod up proxy`, que los genera primero.
+Por eso **es normal** que `config/traefik.yml` y `config/dynamic/.htpasswd` no existan en
+disco: solo viven dentro del contenedor. No es un despliegue incompleto.
 
-Los certificados viven en el volumen `arquisoft-traefik-letsencrypt` y **sobreviven** a
-recrear el contenedor. No usar `down -v` sobre este componente: borraría `acme.json` y
-forzaría la reemisión de todos los certificados, con riesgo de topar los límites de
-Let's Encrypt.
+> **No mezclar los dos métodos.** El `docker-compose.yml` de esta carpeta y
+> `./deploy.sh prod up proxy` son una vía **alternativa** que monta la config por bind
+> mount y crea un contenedor que Terraform no conoce. Usarla sobre un entorno gestionado
+> por Terraform deja dos gestores compitiendo por el nombre `arquisoft-traefik`: el
+> siguiente `terraform apply` intentará recrear el suyo y chocará. Si el entorno se
+> despliega con Terraform, el proxy se toca **solo** con Terraform.
 
-### El `.htpasswd` debe coincidir con el `.env` vigente
+### Las credenciales del dashboard no salen del `.env` raíz
 
-El hash se calcula desde `ADMIN_AUTH_PASSWORD` **en el momento de generarlo**. Si después
-se regenera el `.env` (p. ej. re-ejecutando `setup-env.sh`), el `.htpasswd` queda obsoleto
-y `admin-auth@file` rechaza las credenciales del `.env` con un 401 indistinguible de "no
-enviaste credenciales". Tras cambiar `ADMIN_AUTH_PASSWORD` hay que volver a desplegar el
-proxy para regenerarlo.
+El `.htpasswd` que usa `admin-auth@file` lo escribe Terraform con `var.admin_bcrypt`, que
+viene del módulo `secrets` (`random_password.this["admin_auth_password"].bcrypt_hash`).
+`ADMIN_AUTH_USER` / `ADMIN_AUTH_PASSWORD` del `.env` de la raíz **son otra fuente distinta**,
+usada solo por la vía de `deploy.sh`. No son la misma credencial y no tienen por qué
+coincidir: en un entorno Terraform, la contraseña del dashboard se consulta en el estado
+(`terraform output`), no en el `.env`.
 
-Para comprobar si están sincronizados:
+Un 401 de `admin-auth@file` es indistinguible de "no enviaste credenciales", así que ante
+la duda conviene verificar de qué fuente sale el hash antes de suponer que está roto.
 
-```bash
-source .env
-docker run --rm -v "$PWD/components/proxy/config/dynamic:/d" httpd:2.4-alpine \
-  htpasswd -vb /d/.htpasswd "$ADMIN_AUTH_USER" "$ADMIN_AUTH_PASSWORD"
-```
+### Los certificados están en un volumen y sobreviven
+
+`arquisoft-traefik-letsencrypt` guarda `acme.json` y persiste aunque el contenedor se
+recree. **No usar `down -v`** ni borrar ese volumen: forzaría la reemisión de todos los
+certificados, con riesgo de topar los límites de Let's Encrypt.
 
 ### El dashboard requiere su propio registro DNS
 
-El router `dashboard` expone `https://traefik.${DOMAIN}`, y el resolver ACME usa el desafío
+El router `dashboard` expone `https://traefik.${DOMAIN}` y el resolver ACME usa el desafío
 **HTTP-01**: si ese registro A no existe, Let's Encrypt responde `NXDOMAIN` y Traefik
-**reintenta indefinidamente**, dejando un error recurrente en los logs y consumiendo cuota
-de validaciones fallidas del dominio.
+**reintenta indefinidamente** (con backoff), dejando un error recurrente en los logs y
+consumiendo cuota de validaciones fallidas del dominio.
 
-No afecta al resto de servicios, pero conviene resolverlo de una de estas dos formas:
+No afecta al resto de servicios — es solo el dashboard. Dos salidas posibles:
 
-- **Crear el registro A** `traefik.<DOMAIN>` apuntando a la IP del servidor (queda el
-  dashboard accesible, protegido por `admin-auth@file`), o
-- **quitar los labels del router `dashboard`** de `docker-compose.yml` si no se va a usar.
+- **Crear el registro A** `traefik.<DOMAIN>` apuntando a la IP del servidor, o
+- **quitar los labels del router `dashboard`**, que están en `local.labels` de
+  `terraform/modules/proxy/main.tf` (y replicados en el `docker-compose.yml` de esta
+  carpeta). Requiere `apply` y **recrea el contenedor**.
 
 Para diagnosticarlo:
 
 ```bash
 docker logs arquisoft-traefik 2>&1 | grep 'dashboard@docker' | tail -3
 ```
+
+### Qué expone el dashboard
+
+Sale a Internet por el entrypoint `websecure` (443), pero `api.insecure: false` significa
+que **no hay ningún puerto sin protección**: solo se llega por ese router, detrás de
+`admin-auth@file` y `secure-headers@file`. Muestra routers, servicios, middlewares,
+certificados y salud de los backends. No expone datos de la aplicación, pero sí revela la
+topología interna, por lo que el BasicAuth no es opcional. Es puramente administrativo: la
+plataforma funciona igual sin él.

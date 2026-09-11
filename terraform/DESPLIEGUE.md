@@ -129,6 +129,60 @@ ssh <servidor> 'docker restart arquisoft-traefik'
 
 ---
 
+## Deriva conocida: 4 contenedores se marcan para reemplazo
+
+**Estado observado el 2026-09-11 en el workspace `prod`.** Un `terraform plan` sin cambios
+en el código **no** devuelve "No changes", sino:
+
+```
+Plan: 4 to add, 0 to change, 4 to destroy
+  module.minio.docker_container.minio         must be replaced   # ~ env  forces replacement
+  module.minio.docker_container.minio_init    must be replaced   # ~ env  forces replacement
+  module.proxy.docker_container.traefik       must be replaced   # ~ upload  forces replacement
+  module.rabbitmq.docker_container.rabbitmq   must be replaced   # ~ env + upload  forces replacement
+```
+
+Los tres módulos afectados son justamente los que inyectan **secretos**: por `env`
+(credenciales de MinIO y RabbitMQ) o por `upload` (el `.htpasswd` de Traefik y las
+`definitions.json` de RabbitMQ). Terraform marca esos atributos como sensibles, así que el
+plan **no muestra el valor concreto** que difiere — solo que difiere.
+
+**Qué significa en la práctica:** un `terraform apply` hoy **recrea esos 4 contenedores**,
+aunque no se haya tocado nada del código. No es una pérdida de datos —los volúmenes
+(`acme.json`, datos de MinIO, de RabbitMQ) son recursos aparte y sobreviven— pero sí un
+corte de servicio breve y no anunciado en el proxy, MinIO y RabbitMQ. Conviene saberlo
+**antes** de correr un apply que se creía inocuo.
+
+**Causa probable, no confirmada:** el valor de los secretos que el módulo calcula hoy no
+coincide con el que quedó guardado en el estado. Candidatos a revisar:
+
+- `var.provided_secrets` (secretos pasados desde fuera) presente en un apply y ausente en
+  otro, o con valores distintos: `module.secrets` usa
+  `lookup(var.provided_secrets, k, random_password...result)`, de modo que el efectivo
+  cambia según lo que se pase en `environments/prod.tfvars`.
+- Contenedores recreados a mano o por `deploy.sh` fuera de Terraform en algún momento, lo
+  que deja el estado describiendo algo distinto de lo que corre.
+
+**Cómo diagnosticarlo** (todo de solo lectura):
+
+```bash
+cd terraform
+terraform plan -input=false -lock=false -var-file=environments/prod.tfvars -no-color \
+  | grep -E '^  # |forces replacement|^Plan:'
+
+# Ver el diff sin el enmascarado de "(sensitive value)":
+terraform plan -var-file=environments/prod.tfvars -out=tfplan
+terraform show -json tfplan | jq '.resource_changes[]
+  | select(.change.actions[] | contains("delete"))
+  | {addr: .address, before: .change.before.env, after: .change.after.env}'
+```
+
+Mientras no se resuelva, tratar cualquier `apply` sobre `prod` como una operación que
+**recrea proxy, MinIO y RabbitMQ**: hacerlo en ventana de mantenimiento y con respaldo de
+`acme.json` (ver `backup.sh`).
+
+---
+
 ## Estado de Terraform: dónde vive y cómo reutilizarlo
 
 Terraform guarda en el **archivo de estado** el mapa de todo lo que creó (contenedores, redes,
