@@ -61,6 +61,9 @@ services:
 
       # --- Object storage ---
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      # URL del API S3 que alcanza el navegador: el formulario de carga firmado apunta aquí
+      # (http://minio:9000 solo resuelve dentro de la red de Docker).
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-https://s3.${DOMAIN}}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-arquisoft-backend}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY requerido}
 

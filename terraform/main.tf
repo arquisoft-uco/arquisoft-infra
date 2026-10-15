@@ -101,6 +101,7 @@ module "rabbitmq" {
 module "minio" {
   source              = "./modules/minio"
   network_name        = module.network.name
+  component_dir       = "${local.components_dir}/minio"
   domain              = var.domain
   timezone            = var.timezone
   minio_root_user     = var.minio_root_user

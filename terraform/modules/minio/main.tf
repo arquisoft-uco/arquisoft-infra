@@ -11,6 +11,7 @@ variable "network_name" { type = string }
 variable "domain" { type = string }
 variable "timezone" { type = string }
 variable "minio_root_user" { type = string }
+variable "component_dir" { type = string } # components/minio (para el ciclo de vida de los buckets)
 variable "static_ip" {
   description = "IP estática dentro de la red (endpoint fijo vía VPN). null = dinámica"
   type        = string
@@ -145,6 +146,11 @@ resource "docker_container" "minio_init" {
     "BACKEND_S3_SECRET_KEY=${var.minio_secret_key}",
   ]
 
+  upload {
+    file    = "/config/ciclo-vida-repositorio-artefactos.json"
+    content = file("${var.component_dir}/config/ciclo-vida-repositorio-artefactos.json")
+  }
+
   entrypoint = ["/bin/sh", "-c", <<-EOT
     set -e
     until mcli alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do
@@ -153,6 +159,8 @@ resource "docker_container" "minio_init" {
     mcli mb --ignore-existing local/artefactos
     mcli mb --ignore-existing local/avatars
     mcli mb --ignore-existing local/backups
+    mcli mb --ignore-existing local/repositorio-artefactos
+    mcli ilm rule import local/repositorio-artefactos < /config/ciclo-vida-repositorio-artefactos.json
     mcli anonymous set download local/avatars
     if [ -n "$BACKEND_S3_ACCESS_KEY" ] && [ -n "$BACKEND_S3_SECRET_KEY" ]; then
       mcli admin user add local "$BACKEND_S3_ACCESS_KEY" "$BACKEND_S3_SECRET_KEY" || true
