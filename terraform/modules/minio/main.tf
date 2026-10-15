@@ -151,6 +151,11 @@ resource "docker_container" "minio_init" {
     content = file("${var.component_dir}/config/ciclo-vida-repositorio-artefactos.json")
   }
 
+  upload {
+    file    = "/config/politica-arquisoft-backend.json"
+    content = file("${var.component_dir}/config/politica-arquisoft-backend.json")
+  }
+
   entrypoint = ["/bin/sh", "-c", <<-EOT
     set -e
     until mcli alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do
@@ -161,10 +166,12 @@ resource "docker_container" "minio_init" {
     mcli mb --ignore-existing local/backups
     mcli mb --ignore-existing local/repositorio-artefactos
     mcli ilm rule import local/repositorio-artefactos < /config/ciclo-vida-repositorio-artefactos.json
-    mcli anonymous set download local/avatars
+    mcli anonymous set none local/avatars
     if [ -n "$BACKEND_S3_ACCESS_KEY" ] && [ -n "$BACKEND_S3_SECRET_KEY" ]; then
       mcli admin user add local "$BACKEND_S3_ACCESS_KEY" "$BACKEND_S3_SECRET_KEY" || true
-      mcli admin policy attach local readwrite --user "$BACKEND_S3_ACCESS_KEY" || true
+      mcli admin policy create local arquisoft-backend /config/politica-arquisoft-backend.json
+      mcli admin policy attach local arquisoft-backend --user "$BACKEND_S3_ACCESS_KEY" || true
+      mcli admin policy detach local readwrite --user "$BACKEND_S3_ACCESS_KEY" || true
       echo 'Cuenta de servicio del backend lista'
     fi
     echo 'Buckets inicializados'

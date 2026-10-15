@@ -10,11 +10,39 @@ MinIO oficial fue archivado; este fork es drop-in y mantiene consola + API.
 Dev: `http://127.0.0.1:9001` (consola) y `http://127.0.0.1:9000` (API).
 
 ## Buckets e inicialización
-`minio-init` crea `artefactos`, `avatars` (descarga pública), `backups`, `repositorio-artefactos`
-(privado) y la **cuenta de servicio
-`readwrite` del backend**: access-key `MINIO_ACCESS_KEY` (= `arquisoft-backend`, en `.tfvars`) +
-secret `MINIO_SECRET_KEY` (`secrets.minio_secret_key`). El root `minioadmin` es solo para la
-consola; el backend usa **siempre** la cuenta de servicio, nunca el root.
+`minio-init` crea `artefactos`, `avatars`, `backups` y `repositorio-artefactos`, **todos privados**
+(ninguno admite acceso anónimo), y la **cuenta de servicio del backend**: access-key
+`MINIO_ACCESS_KEY` (= `arquisoft-backend`, en `.tfvars`) + secret `MINIO_SECRET_KEY`
+(`secrets.minio_secret_key`). El root `minioadmin` es solo para la consola; el backend usa
+**siempre** la cuenta de servicio, nunca el root.
+
+Ningún archivo se publica con una URL fija: el acceso a un objeto lo concede el backend tras
+autorizar a quien lo pide. `avatars` fue público (`anonymous set download`); `minio-init` ahora
+ejecuta `anonymous set none` en cada despliegue. Borrar la línea no habría bastado, porque la
+política anónima queda guardada en el bucket.
+
+### Política de la cuenta del backend (mínimo privilegio)
+La cuenta no tiene `readwrite` (que es `s3:*` sobre **todos** los buckets, `backups` incluido),
+sino la política `arquisoft-backend` de
+[`config/politica-arquisoft-backend.json`](config/politica-arquisoft-backend.json). Solo cubre
+`repositorio-artefactos`, el único bucket que el backend usa hoy:
+
+| Acción | Para qué |
+|---|---|
+| `s3:PutObject` | El POST del navegador (va firmado con esta cuenta) y el destino de la copia a `versiones/` |
+| `s3:GetObject` | `statObject`, la lectura de validación y el origen de la copia |
+| `s3:DeleteObject` | Borrar el pendiente tras una subida aceptada |
+| `s3:GetBucketLocation` | El SDK Java consulta la región del bucket antes de operar |
+
+Sin `s3:ListBucket` (no puede listar el bucket), sin creación de buckets, sin administración y sin
+acceso a `artefactos`, `avatars` ni `backups`. A diferencia de AWS, MinIO responde 404 `NoSuchKey`
+a un HEAD/GET de un objeto ausente aunque falte `s3:ListBucket`, y el backend depende de ese 404
+para saber que una carga no existe. Si una actualización de MinIO cambiara ese comportamiento, el
+síntoma sería 503 en lugar de 422 al confirmar una carga inexistente.
+**Cuando una HU haga que el backend use otro bucket** (p. ej. `artefactos`, HU043), agrega sus dos
+`Statement` al JSON en el mismo PR. Si no, esa HU responde 503 en la nube aunque funcione en local
+con root. `minio-init` hace `policy create` en cada despliegue (reemplaza el contenido), adjunta la
+política y desadjunta `readwrite`.
 
 > ⚠️ El access-key NO debe coincidir con `minio_root_user` (`minioadmin`): colisionaría con el
 > nombre del root y la cuenta de servicio no se crearía.
