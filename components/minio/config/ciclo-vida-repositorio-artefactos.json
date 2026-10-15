@@ -1,0 +1,10 @@
+{
+  "Rules": [
+    {
+      "ID": "expirar-pendientes",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "pendientes/" },
+      "Expiration": { "Days": 1 }
+    }
+  ]
+}
