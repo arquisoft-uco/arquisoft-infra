@@ -333,14 +333,12 @@ Debe retornar `HTTP/2 200`. Si hay error de conexión, verificar propagación DN
 
 Buckets sugeridos para este proyecto: `artefactos`, `avatars`, `backups`.
 
-### Configurar acceso público (solo para avatars)
+### Acceso de los buckets
 
-1. Seleccionar el bucket `avatars`.
-2. Ir a la pestaña `Access Policy`.
-3. Cambiar la política a `Public` para acceso de lectura anónima.
-4. Guardar.
-
-Los buckets `artefactos` y `backups` deben permanecer en modo `Private`.
+Todos los buckets (`artefactos`, `avatars`, `backups`, `repositorio-artefactos`) deben permanecer en
+modo `Private`. Ninguno se publica con acceso anónimo: el acceso a un archivo lo concede el
+backend tras autorizar a quien lo pide. El despliegue vigente lo aplica en `minio-init`; ver
+`components/minio/README.md`.
 
 ---
 
@@ -351,7 +349,8 @@ El backend **no debe usar las credenciales raíz**. Crear un Access Key dedicado
 1. En la consola, ir a `Access Keys` en el menú lateral.
 2. Dar clic en `Create access key`.
 3. Guardar el `Access Key` y el `Secret Key` generados antes de cerrar — el `Secret Key` no es recuperable.
-4. Opcionalmente, restringir en `Policy` el acceso solo a los buckets que el backend necesita.
+4. Restringir en `Policy` el acceso solo a los buckets que el backend necesita (ver
+   `components/minio/config/politica-arquisoft-backend.json`).
 
 Parámetros de conexión para el SDK Java según el caso de despliegue (ver sección 7):
 
