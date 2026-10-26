@@ -79,6 +79,7 @@ resource "docker_container" "minio" {
     "MINIO_ROOT_PASSWORD=${var.minio_root_password}",
     "MINIO_SERVER_URL=https://s3.${var.domain}",
     "MINIO_BROWSER_REDIRECT_URL=https://minio.${var.domain}",
+    "MINIO_BROWSER_SESSION_DURATION=1h", # sesión de la consola desde el login (default de MinIO: 12h)
     "TZ=${var.timezone}",
   ]
 

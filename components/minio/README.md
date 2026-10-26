@@ -9,6 +9,10 @@ MinIO oficial fue archivado; este fork es drop-in y mantiene consola + API.
 
 Dev: `http://127.0.0.1:9001` (consola) y `http://127.0.0.1:9000` (API).
 
+La sesión de la consola dura **1 h desde el login** (`MINIO_BROWSER_SESSION_DURATION`; el default de
+MinIO es 12 h). No se cierra por inactividad: vence a la hora aunque se esté usando, y la siguiente
+acción pide login de nuevo. Cambiarla obliga a recrear el contenedor (corte breve).
+
 ## Buckets e inicialización
 `minio-init` crea `artefactos`, `avatars`, `backups` y `repositorio-artefactos`, **todos privados**
 (ninguno admite acceso anónimo), y la **cuenta de servicio del backend**: access-key
