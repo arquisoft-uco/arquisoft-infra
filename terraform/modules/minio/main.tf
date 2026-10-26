@@ -152,6 +152,11 @@ resource "docker_container" "minio_init" {
   }
 
   upload {
+    file    = "/config/ciclo-vida-artefactos.json"
+    content = file("${var.component_dir}/config/ciclo-vida-artefactos.json")
+  }
+
+  upload {
     file    = "/config/politica-arquisoft-backend.json"
     content = file("${var.component_dir}/config/politica-arquisoft-backend.json")
   }
@@ -166,6 +171,7 @@ resource "docker_container" "minio_init" {
     mcli mb --ignore-existing local/backups
     mcli mb --ignore-existing local/repositorio-artefactos
     mcli ilm rule import local/repositorio-artefactos < /config/ciclo-vida-repositorio-artefactos.json
+    mcli ilm rule import local/artefactos < /config/ciclo-vida-artefactos.json
     mcli anonymous set none local/avatars
     if [ -n "$BACKEND_S3_ACCESS_KEY" ] && [ -n "$BACKEND_S3_SECRET_KEY" ]; then
       mcli admin user add local "$BACKEND_S3_ACCESS_KEY" "$BACKEND_S3_SECRET_KEY" || true

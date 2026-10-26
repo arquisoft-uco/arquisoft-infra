@@ -12,6 +12,18 @@
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
       "Resource": ["arn:aws:s3:::repositorio-artefactos/*"]
+    },
+    {
+      "Sid": "BucketArtefactos",
+      "Effect": "Allow",
+      "Action": ["s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::artefactos"]
+    },
+    {
+      "Sid": "ObjetosArtefactos",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::artefactos/*"]
     }
   ]
 }
