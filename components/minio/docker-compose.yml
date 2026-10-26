@@ -18,6 +18,8 @@ services:
       # URL pública del API S3 (la consola lo usa y se embebe en las presigned URLs)
       MINIO_SERVER_URL: https://s3.${DOMAIN:?DOMAIN requerido}
       MINIO_BROWSER_REDIRECT_URL: https://minio.${DOMAIN}
+      # Duración fija de la sesión de la consola desde el login (no es por inactividad). Default de MinIO: 12h
+      MINIO_BROWSER_SESSION_DURATION: 1h
       TZ: ${TIMEZONE:-America/Bogota}
     volumes:
       - minio-data:/data
