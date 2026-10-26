@@ -25,7 +25,8 @@ política anónima queda guardada en el bucket.
 La cuenta no tiene `readwrite` (que es `s3:*` sobre **todos** los buckets, `backups` incluido),
 sino la política `arquisoft-backend` de
 [`config/politica-arquisoft-backend.json`](config/politica-arquisoft-backend.json). Solo cubre
-`repositorio-artefactos`, el único bucket que el backend usa hoy:
+los buckets que el backend usa hoy, `repositorio-artefactos` (plantillas, HU-275) y `artefactos`
+(versiones de los artefactos del estudiante, HU-043), con las mismas acciones en cada uno:
 
 | Acción | Para qué |
 |---|---|
@@ -35,31 +36,38 @@ sino la política `arquisoft-backend` de
 | `s3:GetBucketLocation` | El SDK Java consulta la región del bucket antes de operar |
 
 Sin `s3:ListBucket` (no puede listar el bucket), sin creación de buckets, sin administración y sin
-acceso a `artefactos`, `avatars` ni `backups`. A diferencia de AWS, MinIO responde 404 `NoSuchKey`
+acceso a `avatars` ni `backups`. A diferencia de AWS, MinIO responde 404 `NoSuchKey`
 a un HEAD/GET de un objeto ausente aunque falte `s3:ListBucket`, y el backend depende de ese 404
 para saber que una carga no existe. Si una actualización de MinIO cambiara ese comportamiento, el
 síntoma sería 503 en lugar de 422 al confirmar una carga inexistente.
-**Cuando una HU haga que el backend use otro bucket** (p. ej. `artefactos`, HU043), agrega sus dos
-`Statement` al JSON en el mismo PR. Si no, esa HU responde 503 en la nube aunque funcione en local
+**Cuando una HU haga que el backend use otro bucket**, agrega sus dos `Statement` al JSON en el
+mismo PR, como se hizo con `artefactos` en HU-043. Si no, esa HU responde 503 en la nube aunque funcione en local
 con root. `minio-init` hace `policy create` en cada despliegue (reemplaza el contenido), adjunta la
 política y desadjunta `readwrite`.
 
 > ⚠️ El access-key NO debe coincidir con `minio_root_user` (`minioadmin`): colisionaría con el
 > nombre del root y la cuenta de servicio no se crearía.
 
-### Ciclo de vida de `repositorio-artefactos`
-El navegador sube cada plantilla directo a MinIO bajo `pendientes/{carga}` con un formulario
-firmado por el backend; al confirmar, el backend la valida y la copia a `versiones/{versionId}`.
-Lo que queda en `pendientes/` (cargas abandonadas o rechazadas) lo borra la regla de
-[`config/ciclo-vida-repositorio-artefactos.json`](config/ciclo-vida-repositorio-artefactos.json)
-al día siguiente. `versiones/` no expira: su ciclo de vida lo gobierna el backend.
+### Ciclo de vida de `repositorio-artefactos` y `artefactos`
+Los dos buckets siguen el mismo flujo: el navegador sube el archivo (una plantilla en
+`repositorio-artefactos`, una versión del artefacto en `artefactos`) directo a MinIO bajo
+`pendientes/{carga}` con un formulario firmado por el backend; al confirmar, el backend lo valida y
+lo copia a `versiones/{versionId}`. Lo que queda en `pendientes/` (cargas abandonadas o rechazadas)
+lo borra al día siguiente la regla de cada bucket:
 
-`minio-init` la aplica con `mcli ilm rule import`, que **reemplaza** la configuración completa del
-bucket: reejecutarlo no duplica reglas. Por lo mismo, toda regla nueva del bucket se agrega a ese
+| Bucket | Regla |
+|---|---|
+| `repositorio-artefactos` | [`config/ciclo-vida-repositorio-artefactos.json`](config/ciclo-vida-repositorio-artefactos.json) |
+| `artefactos` | [`config/ciclo-vida-artefactos.json`](config/ciclo-vida-artefactos.json) |
+
+`versiones/` no expira en ninguno: su ciclo de vida lo gobierna el backend.
+
+`minio-init` las aplica con `mcli ilm rule import`, que **reemplaza** la configuración completa del
+bucket: reejecutarlo no duplica reglas. Por lo mismo, toda regla nueva de un bucket se agrega a su
 JSON, nunca con `mcli ilm rule add` a mano (el siguiente `minio-init` la borraría).
 
 ```bash
-docker exec arquisoft-minio sh -c 'mcli alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mcli ilm rule ls local/repositorio-artefactos'
+docker exec arquisoft-minio sh -c 'mcli alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mcli ilm rule ls local/repositorio-artefactos && mcli ilm rule ls local/artefactos'
 ```
 
 ## Uso
