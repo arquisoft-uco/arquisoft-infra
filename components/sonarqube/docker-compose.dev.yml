@@ -1,0 +1,18 @@
+# =============================================================================
+# Componente: sonarqube — overlay DESARROLLO
+# =============================================================================
+# Sin Traefik ni TLS: publica la UI en el loopback para usarla directo.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#   UI -> http://127.0.0.1:9000
+# =============================================================================
+
+services:
+  sonarqube-db:
+    restart: unless-stopped
+
+  sonarqube:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9000:9000"
+    labels:
+      - "traefik.enable=false"

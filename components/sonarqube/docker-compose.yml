@@ -1,0 +1,142 @@
+# =============================================================================
+# Componente: sonarqube (análisis estático de calidad de código) — AISLADO
+# =============================================================================
+# SonarQube Community Build + su PostgreSQL DEDICADO. Recibe los análisis que
+# ejecutan los pipelines de GitHub Actions de arquisoft-backend y
+# arquisoft-frontend y publica el reporte en https://sonar.${DOMAIN}.
+#
+# IMPORTANTE — herramienta de desarrollo, NO forma parte de la plataforma:
+#   * No está en ALL_COMPONENTS de deploy.sh.
+#   * No usa el .env de la raíz: lee su propio .env de esta carpeta.
+#   * Ningún servicio de la aplicación depende de él. Si se cae, la plataforma
+#     sigue funcionando; solo fallan los análisis del CI.
+#
+# Requisito del host (Elasticsearch embebido): vm.max_map_count >= 524288.
+#
+#   cd components/sonarqube
+#   cp .env.example .env      # y rellenar los CHANGE_ME
+#   docker compose up -d
+# =============================================================================
+
+services:
+  sonarqube-db:
+    image: postgres:18-alpine
+    container_name: arquisoft-sonarqube-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${SONAR_DB_USER:-sonarqube}
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD:?SONAR_DB_PASSWORD requerido - ver .env de esta carpeta}
+      POSTGRES_DB: ${SONAR_DB_NAME:-sonarqube}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: ${TIMEZONE:-America/Bogota}
+    volumes:
+      - sonarqube-db-data:/var/lib/postgresql/data
+    # Red interna propia: la BD solo la alcanza SonarQube. No se une a
+    # arquisoft-network, así ningún otro contenedor de la plataforma la ve.
+    networks:
+      - sonarqube-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  sonarqube:
+    # Versión fijada (imagen multi-arquitectura: amd64 y arm64). Community Build
+    # publica una versión al mes; para actualizar ver README.md (requiere backup).
+    image: sonarqube:26.10.0.133078-community
+    container_name: arquisoft-sonarqube
+    restart: always
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/${SONAR_DB_NAME:-sonarqube}
+      SONAR_JDBC_USERNAME: ${SONAR_DB_USER:-sonarqube}
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD:?SONAR_DB_PASSWORD requerido - ver .env de esta carpeta}
+      SONAR_TELEMETRY_ENABLE: "false"
+      TZ: ${TIMEZONE:-America/Bogota}
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+    networks:
+      - sonarqube-internal
+      # Solo para que Traefik lo alcance. No expone puertos al host.
+      - arquisoft-network
+    depends_on:
+      sonarqube-db:
+        condition: service_healthy
+    # Elasticsearch embebido exige estos límites de archivos/procesos.
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc:
+        soft: 8192
+        hard: 8192
+    healthcheck:
+      # Sin depender de curl/wget: se consulta el estado por /dev/tcp. Se invoca
+      # bash explícito porque /bin/sh de la imagen no soporta /dev/tcp.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /api/system/status HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"status\":\"UP\"' <&3"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # El primer arranque crea el esquema y los índices: puede tardar minutos.
+      start_period: 180s
+    labels:
+      - "traefik.enable=true"
+      # Se indica la red porque el contenedor está en dos redes.
+      - "traefik.docker.network=arquisoft-network"
+      - "traefik.http.routers.sonarqube.rule=Host(`sonar.${DOMAIN:?DOMAIN requerido - ver .env de esta carpeta}`)"
+      - "traefik.http.routers.sonarqube.entrypoints=websecure"
+      - "traefik.http.routers.sonarqube.tls=true"
+      - "traefik.http.routers.sonarqube.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sonarqube.middlewares=secure-headers@file"
+      # Sin admin-auth@file: SonarQube tiene su propio login y los pipelines de
+      # CI se autentican con token; un BasicAuth delante rompería el scanner.
+      - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '0.5'
+
+networks:
+  arquisoft-network:
+    external: true
+  sonarqube-internal:
+    name: arquisoft-sonarqube-internal
+
+volumes:
+  sonarqube-db-data:
+    name: arquisoft-sonarqube-db-data
+  sonarqube-data:
+    name: arquisoft-sonarqube-data
+  sonarqube-extensions:
+    name: arquisoft-sonarqube-extensions
+  sonarqube-logs:
+    name: arquisoft-sonarqube-logs

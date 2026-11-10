@@ -53,3 +53,6 @@ terraform/terraform.tfstate.d/
 components/mailpit/.env
 components/mailpit/config/smtp-auth.txt
 components/mailpit/config/ui-auth.txt
+
+# sonarqube (herramienta aislada): .env local con la contraseña de su BD
+components/sonarqube/.env
