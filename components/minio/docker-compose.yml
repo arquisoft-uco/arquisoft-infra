@@ -86,6 +86,7 @@ services:
       mcli mb --ignore-existing local/artefactos;
       mcli mb --ignore-existing local/avatars;
       mcli mb --ignore-existing local/backups;
+      mcli mb --ignore-existing local/entregables;
       mcli mb --ignore-existing local/repositorio-artefactos;
       mcli ilm rule import local/repositorio-artefactos < /config/ciclo-vida-repositorio-artefactos.json;
       mcli ilm rule import local/artefactos < /config/ciclo-vida-artefactos.json;

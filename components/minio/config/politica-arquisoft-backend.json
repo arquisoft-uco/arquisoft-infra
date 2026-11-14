@@ -24,6 +24,18 @@
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
       "Resource": ["arn:aws:s3:::artefactos/*"]
+    },
+    {
+      "Sid": "BucketEntregables",
+      "Effect": "Allow",
+      "Action": ["s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::entregables"]
+    },
+    {
+      "Sid": "ObjetosEntregables",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::entregables/*"]
     }
   ]
 }

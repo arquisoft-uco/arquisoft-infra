@@ -14,7 +14,7 @@ MinIO es 12 h). No se cierra por inactividad: vence a la hora aunque se esté us
 acción pide login de nuevo. Cambiarla obliga a recrear el contenedor (corte breve).
 
 ## Buckets e inicialización
-`minio-init` crea `artefactos`, `avatars`, `backups` y `repositorio-artefactos`, **todos privados**
+`minio-init` crea `artefactos`, `avatars`, `backups`, `entregables` y `repositorio-artefactos`, **todos privados**
 (ninguno admite acceso anónimo), y la **cuenta de servicio del backend**: access-key
 `MINIO_ACCESS_KEY` (= `arquisoft-backend`, en `.tfvars`) + secret `MINIO_SECRET_KEY`
 (`secrets.minio_secret_key`). El root `minioadmin` es solo para la consola; el backend usa
@@ -29,14 +29,15 @@ política anónima queda guardada en el bucket.
 La cuenta no tiene `readwrite` (que es `s3:*` sobre **todos** los buckets, `backups` incluido),
 sino la política `arquisoft-backend` de
 [`config/politica-arquisoft-backend.json`](config/politica-arquisoft-backend.json). Solo cubre
-los buckets que el backend usa hoy, `repositorio-artefactos` (plantillas, HU-275) y `artefactos`
-(versiones de los artefactos del estudiante, HU-043), con las mismas acciones en cada uno:
+los buckets que el backend usa hoy, `repositorio-artefactos` (plantillas, HU-275), `artefactos`
+(versiones de los artefactos del estudiante, HU-043) y `entregables` (paquete zip de cada entregable,
+HT-023), con las mismas acciones en cada uno:
 
 | Acción | Para qué |
 |---|---|
-| `s3:PutObject` | El POST del navegador (va firmado con esta cuenta) y el destino de la copia a `versiones/` |
-| `s3:GetObject` | `statObject`, la lectura de validación y el origen de la copia |
-| `s3:DeleteObject` | Borrar el pendiente tras una subida aceptada |
+| `s3:PutObject` | El POST del navegador (va firmado con esta cuenta), el destino de la copia a `versiones/` y, en `entregables`, el destino de la copia de cada artefacto cerrado y la subida del zip |
+| `s3:GetObject` | `statObject`, la lectura de validación y el origen de la copia (en `artefactos`, también el origen de la copia hacia `entregables`) |
+| `s3:DeleteObject` | Borrar el pendiente tras una subida aceptada; en `entregables`, la copia anterior de un artefacto y los zips purgados |
 | `s3:GetBucketLocation` | El SDK Java consulta la región del bucket antes de operar |
 
 Sin `s3:ListBucket` (no puede listar el bucket), sin creación de buckets, sin administración y sin
@@ -51,6 +52,15 @@ política y desadjunta `readwrite`.
 
 > ⚠️ El access-key NO debe coincidir con `minio_root_user` (`minioadmin`): colisionaría con el
 > nombre del root y la cuenta de servicio no se crearía.
+
+### Bucket `entregables`
+Lo usa el contexto `entregables` del backend (HT-023). Al cerrarse la revisión de un artefacto, el
+backend copia su versión desde `artefactos` a `artefactos/{artefacto}/v{n}` dentro de `entregables` (copia del lado
+del servidor, condicionada al ETag); al generar un entregable arma el zip con esas copias y lo sube a
+`paquetes/{entregable}.zip` del mismo bucket. **No tiene regla de ciclo de vida:** nada se sube a
+`pendientes/` (no hay formulario del navegador) y lo que hay en él lo borra el backend (copia anterior
+de un artefacto, zips de entregables cancelados y purga del proyecto). Más adelante lo leerá
+biblioteca, que copiará el zip oficial a su propio espacio.
 
 ### Ciclo de vida de `repositorio-artefactos` y `artefactos`
 Los dos buckets siguen el mismo flujo: el navegador sube el archivo (una plantilla en

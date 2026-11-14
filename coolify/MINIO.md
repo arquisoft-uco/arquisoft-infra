@@ -331,11 +331,11 @@ Debe retornar `HTTP/2 200`. Si hay error de conexión, verificar propagación DN
 4. Dejar `Versioning` y `Object Locking` desactivados.
 5. Dar clic en `Create Bucket`.
 
-Buckets sugeridos para este proyecto: `artefactos`, `avatars`, `backups`.
+Buckets sugeridos para este proyecto: `artefactos`, `avatars`, `backups`, `entregables`, `repositorio-artefactos`.
 
 ### Acceso de los buckets
 
-Todos los buckets (`artefactos`, `avatars`, `backups`, `repositorio-artefactos`) deben permanecer en
+Todos los buckets (`artefactos`, `avatars`, `backups`, `entregables`, `repositorio-artefactos`) deben permanecer en
 modo `Private`. Ninguno se publica con acceso anónimo: el acceso a un archivo lo concede el
 backend tras autorizar a quien lo pide. El despliegue vigente lo aplica en `minio-init`; ver
 `components/minio/README.md`.
