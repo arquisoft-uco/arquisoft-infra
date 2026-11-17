@@ -48,6 +48,18 @@ sudo -u deploy ./scripts/verify-secrets.sh /ruta/al/.env
 `duckdns`, `mailpit`, `sonarqube` y `wireguard` usan su propio `components/<c>/.env` y quedan
 fuera de Doppler por ahora.
 
+### Si el `.env` no coincide: `scripts/recover-env.sh`
+Reconstruye el `.env` a partir del entorno con el que Docker creó cada contenedor (y del
+`definitions.json` de RabbitMQ). Parte de un `.env` base, sobrescribe solo lo recuperable e
+imprime nombres, nunca valores. También indica desde qué carpeta se desplegó cada contenedor.
+```bash
+./scripts/recover-env.sh .env /tmp/env.recuperado
+./scripts/verify-secrets.sh /tmp/env.recuperado
+```
+No puede recuperar lo que el servicio solo usa en el primer arranque y luego guarda en su base de
+datos (`KEYCLOAK_ADMIN_PASSWORD`, `GRAFANA_ADMIN_PASSWORD`, si se cambiaron desde la consola) ni
+`ADMIN_AUTH_PASSWORD` (solo existe como hash). Esas se restablecen o se rotan.
+
 ## Quién accede y cómo
 
 | Quién | Acceso |

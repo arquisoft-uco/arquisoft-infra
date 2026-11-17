@@ -4,8 +4,8 @@
 
 # Environment variables (secrets)
 .env
-.env.prod
-.env.local
+.env.*
+!.env.example
 
 # Traefik ACME certificates
 acme.json

@@ -140,10 +140,12 @@ if running arquisoft-grafana; then
   else bad "Grafana (GRAFANA_ADMIN_USER/PASSWORD): el servicio rechaza la credencial"; fi
 else skip "Grafana (contenedor no corre)"; fi
 
-# BasicAuth de consolas (Traefik dashboard) — vía HTTPS público
+# BasicAuth de consolas (Traefik dashboard) — HTTPS contra el Traefik local
+# (--resolve evita depender del DNS/NAT público desde el propio servidor)
 if running arquisoft-traefik && [[ -n "${DOMAIN:-}" && -n "${ADMIN_AUTH_USER:-}" ]] && command -v curl >/dev/null; then
   code="$(printf 'user = "%s:%s"\n' "$ADMIN_AUTH_USER" "${ADMIN_AUTH_PASSWORD:-}" \
-          | curl -s -o /dev/null -w '%{http_code}' -K - "https://traefik.${DOMAIN}/dashboard/" 2>/dev/null)"
+          | curl -s -o /dev/null -w '%{http_code}' --max-time 10 -K - \
+              --resolve "traefik.${DOMAIN}:443:127.0.0.1" "https://traefik.${DOMAIN}/dashboard/" 2>/dev/null)"
   case "$code" in
     2*|3*) ok "BasicAuth consolas (ADMIN_AUTH_USER/PASSWORD)" ;;
     401)   bad "BasicAuth consolas (ADMIN_AUTH_USER/PASSWORD): Traefik responde 401" ;;
