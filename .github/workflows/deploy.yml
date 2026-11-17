@@ -8,7 +8,12 @@
 # Prerequisitos:
 #   - Self-hosted runner instalado y corriendo en el servidor
 #   - Docker y Docker Compose disponibles
-#   - Secret ENV_FILE con el contenido completo del .env
+#   - Doppler CLI instalado en el servidor del runner (ver docs/SECRETOS.md)
+#   - Secret DOPPLER_TOKEN en cada GitHub Environment (dev / prod): service
+#     token de SOLO LECTURA del config correspondiente (dev / prd)
+#
+# Los secretos se obtienen vía scripts/fetch-secrets.sh (adaptador del baúl);
+# el workflow no conoce los valores ni su formato.
 # ==============================================================================
 
 name: Deploy
@@ -53,15 +58,16 @@ jobs:
       - name: Login a GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Crear archivo .env desde Secret
+      - name: Generar .env desde el baúl de secretos
+        env:
+          SECRETS_PROVIDER: doppler
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
         run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
-          if [ ! -s .env ]; then
-            echo "❌ Secret ENV_FILE vacío o no configurado"
+          if [ -z "$DOPPLER_TOKEN" ]; then
+            echo "❌ Secret DOPPLER_TOKEN no configurado en el environment '${{ github.event.inputs.environment }}'"
             exit 1
           fi
-          chmod 600 .env
-          echo "✅ .env generado desde secret ($(wc -l < .env) líneas)"
+          ./scripts/fetch-secrets.sh fetch
 
       - name: Deploy
         run: ./deploy.sh ${{ github.event.inputs.environment }} up ${{ github.event.inputs.components }}
@@ -69,3 +75,8 @@ jobs:
       - name: Estado de servicios
         if: always()
         run: ./deploy.sh ${{ github.event.inputs.environment }} status || true
+
+      # Los contenedores ya tienen sus variables; el .env no debe quedar en el runner.
+      - name: Eliminar .env del runner
+        if: always()
+        run: shred -u .env 2>/dev/null || rm -f .env

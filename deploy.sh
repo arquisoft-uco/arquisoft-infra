@@ -46,7 +46,7 @@ if [[ "${1:-}" =~ ^(up|down|status)$ ]]; then CMD="$1"; shift || true; fi
 COMPONENTS=("$@")
 
 # ---------- Validaciones de entorno ----------
-[[ -f "$ENV_FILE" ]] || { log_error ".env no encontrado. Ejecutar: ./setup-env.sh $ENV"; exit 1; }
+[[ -f "$ENV_FILE" ]] || { log_error ".env no encontrado. Ejecutar: ./scripts/fetch-secrets.sh fetch (Doppler) o ./setup-env.sh $ENV"; exit 1; }
 set -a; source "$ENV_FILE"; set +a
 
 if [[ -z "${DOMAIN:-}" ]]; then log_error "DOMAIN no definido en .env"; exit 1; fi

@@ -21,16 +21,21 @@ arquisoft-infra/
 │   ├── observability/   # Loki, Prometheus, Grafana (logs/métricas vía Alloy)
 │   ├── backend/         # Imagen del backend + Grafana Alloy (sidecar)
 │   └── frontend/
-├── scripts/lib/         # Helpers compartidos (bash)
+├── scripts/
+│   ├── fetch-secrets.sh # Adaptador del baúl de secretos (Doppler / .env local)
+│   ├── redeploy-app.sh  # Redeploy de backend/frontend (CD vía SSH)
+│   └── lib/             # Helpers compartidos (bash)
 ├── docs/                # DESPLIEGUE / BACKUP / RESTORE
 └── coolify/             # Referencia/legacy (guías del despliegue anterior)
 ```
 
 ## Inicio rápido
 ```bash
-# 1. Variables (contraseñas autogeneradas)
-./setup-env.sh dev                                    # local
-# ./setup-env.sh prod arquisoft.top admin@arquisoft.top   # producción
+# 1. Variables — desde Doppler (ver docs/SECRETOS.md)...
+doppler setup --project arquisoft-infra --config dev && ./scripts/fetch-secrets.sh fetch
+# ...o generadas localmente (sin Doppler / entorno nuevo)
+# ./setup-env.sh dev
+# ./setup-env.sh prod arquisoft.top admin@arquisoft.top
 
 # 2. Desplegar
 ./deploy.sh dev            # todo en local (HTTP, puertos 127.0.0.1)
@@ -52,6 +57,7 @@ la aplicación. Cada servicio de datos sigue el modelo **admin/root + usuario de
 
 ## Documentación
 - [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md) — single-server y multi-servidor, firewall, DNS.
+- [docs/SECRETOS.md](docs/SECRETOS.md) — secretos en Doppler, adaptador `fetch-secrets.sh`, tokens.
 - [docs/FIREWALL.md](docs/FIREWALL.md) — hardening de red por rol de servidor (global).
 - [docs/BACKUP.md](docs/BACKUP.md) y [docs/RESTORE.md](docs/RESTORE.md).
 - README de cada componente en `components/<servicio>/README.md`.

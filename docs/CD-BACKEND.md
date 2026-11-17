@@ -35,8 +35,11 @@ arquisoft-backend (repo)
 
 ```bash
 git clone https://github.com/arquisoft-uco/arquisoft-infra.git /opt/arquisoft-infra
-# El .env ya debe existir (generado con ./setup-env.sh o copiado manualmente)
 ```
+
+El `.env` lo genera `redeploy-app.sh` desde Doppler en cada redeploy (requiere el token del
+servidor, ver [SECRETOS.md](SECRETOS.md) → *Servidor*). Sin Doppler, el `.env` debe existir
+(generado con `./setup-env.sh` o copiado manualmente).
 
 ### 2. Usuario SSH dedicado para CI
 
@@ -91,9 +94,10 @@ El template está en [docs/examples/workflow-deploy-backend.yml](examples/workfl
 Copiarlo al repo `arquisoft-backend` como `.github/workflows/deploy.yml`.
 
 El script que corre en el servidor es [scripts/redeploy-app.sh](../scripts/redeploy-app.sh):
-- Actualiza `BACKEND_TAG` en el `.env` raíz (idempotente para futuros despliegues manuales)
-- `docker compose pull backend` — descarga la nueva imagen
+- Obtiene el `.env` con `scripts/fetch-secrets.sh` (Doppler o `.env` local)
+- `docker compose pull backend` — descarga la nueva imagen (el tag nuevo entra como variable de entorno)
 - `docker compose up -d --no-deps backend` — recrea solo el backend y Alloy; no toca postgres, redis, ni ningún otro servicio
+- Solo si lo anterior funcionó, persiste `BACKEND_TAG` (en Doppler o en el `.env`) para futuros despliegues
 
 ---
 
@@ -132,4 +136,4 @@ cd /opt/arquisoft-infra
 bash scripts/redeploy-app.sh --service backend --tag sha-<tag-anterior>
 ```
 
-El script actualiza `.env` y recrea el contenedor con el tag indicado.
+El script recrea el contenedor con el tag indicado y lo persiste (Doppler o `.env`).
