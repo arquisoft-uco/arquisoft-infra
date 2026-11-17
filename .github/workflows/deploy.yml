@@ -9,8 +9,8 @@
 #   - Self-hosted runner instalado y corriendo en el servidor
 #   - Docker y Docker Compose disponibles
 #   - Doppler CLI instalado en el servidor del runner (ver docs/SECRETOS.md)
-#   - Secret DOPPLER_TOKEN en cada GitHub Environment (dev / prod): service
-#     token de SOLO LECTURA del config correspondiente (dev / prd)
+#   - Secret DOPPLER_TOKEN en el GitHub Environment usado (prod → config
+#     Doppler `test` del servidor): service token de SOLO LECTURA
 #
 # Los secretos se obtienen vía scripts/fetch-secrets.sh (adaptador del baúl);
 # el workflow no conoce los valores ni su formato.
