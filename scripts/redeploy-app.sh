@@ -3,7 +3,10 @@
 # redeploy-app.sh — Redeploy de apps vía docker compose (sin Terraform)
 # =============================================================================
 # Llamado por GitHub Actions vía SSH para redesplegar backend o frontend.
-# Lee credenciales del .env raíz; solo actualiza el tag de la imagen.
+# Obtiene el .env raíz con scripts/fetch-secrets.sh (Doppler o .env local) y
+# solo cambia el tag de la imagen. El tag se persiste (en Doppler o en .env)
+# DESPUÉS de un despliegue exitoso, para que despliegues posteriores no regresen
+# a una imagen anterior.
 #
 # Uso:
 #   ./scripts/redeploy-app.sh --service backend --tag sha-a1b2c3d
@@ -31,22 +34,24 @@ case "$SERVICE" in
   *) echo "ERROR: --service debe ser 'backend' o 'frontend'"; exit 1 ;;
 esac
 
+[[ "$TAG" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "ERROR: --tag inválido: '$TAG'"; exit 1; }
+
 COMPOSE_FILE="$INFRA_DIR/components/$SERVICE/docker-compose.yml"
 ENV_FILE="$INFRA_DIR/.env"
+FETCH_SECRETS="$INFRA_DIR/scripts/fetch-secrets.sh"
 
 [[ ! -f "$COMPOSE_FILE" ]] && { echo "ERROR: no encontrado $COMPOSE_FILE"; exit 1; }
-[[ ! -f "$ENV_FILE" ]]     && { echo "ERROR: no encontrado $ENV_FILE";     exit 1; }
 
 # Nombre de la variable de tag en .env
 TAG_VAR="BACKEND_TAG"
 [[ "$SERVICE" == "frontend" ]] && TAG_VAR="FRONTEND_TAG"
 
-# Actualizar el tag en .env para que cualquier apply posterior sea idempotente
-if grep -q "^${TAG_VAR}=" "$ENV_FILE"; then
-  sed -i "s|^${TAG_VAR}=.*|${TAG_VAR}=${TAG}|" "$ENV_FILE"
-else
-  echo "${TAG_VAR}=${TAG}" >> "$ENV_FILE"
-fi
+echo ">>> Secretos: proveedor $("$FETCH_SECRETS" provider)"
+"$FETCH_SECRETS" fetch
+
+# El tag nuevo entra como variable de entorno: en compose, el entorno del shell
+# tiene prioridad sobre --env-file. Así no se persiste hasta que el deploy funcione.
+export "${TAG_VAR}=${TAG}"
 
 echo ">>> Pulling $SERVICE:$TAG ..."
 docker compose \
@@ -59,5 +64,9 @@ docker compose \
   -f "$COMPOSE_FILE" \
   --env-file "$ENV_FILE" \
   up -d --no-deps "$SERVICE"
+
+# Persistir el tag (Doppler o .env) para que despliegues posteriores sean idempotentes
+"$FETCH_SECRETS" set "${TAG_VAR}=${TAG}"
+[[ "$("$FETCH_SECRETS" provider)" == "doppler" ]] && "$FETCH_SECRETS" fetch
 
 echo ">>> $SERVICE desplegado con tag $TAG"
