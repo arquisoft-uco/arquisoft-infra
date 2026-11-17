@@ -39,7 +39,13 @@ Valida un `.env` contra lo **desplegado**, sin imprimir valores: (1) que estén 
 que exigen los componentes que corren, (2) que cada credencial sea aceptada por su servicio
 (Postgres, Keycloak-DB, Redis, RabbitMQ admin/app, MinIO root/backend, Keycloak admin/cliente,
 Grafana, BasicAuth de Traefik) y (3) que `BACKEND_TAG`/`FRONTEND_TAG` coincidan con la imagen que
-corre. Exit 0 solo si todo coincide. Úsalo antes de subir valores a Doppler y después de rotar.
+corre. Exit 0 si no hay ❌. Úsalo antes de subir valores a Doppler y después de rotar.
+
+Son **avisos ⚠** (no bloquean):
+- **Keycloak admin de arranque** (`KEYCLOAK_ADMIN/PASSWORD` = `KC_BOOTSTRAP_ADMIN_*`): Keycloak solo
+  lo crea con la BD vacía y lo normal es borrarlo tras crear administradores personales. Se conserva
+  en Doppler porque es el que Keycloak recrearía si la BD se reconstruye desde cero.
+- **Tags de backend/frontend**: los publica el pipeline de cada app y se desfasan en cada despliegue.
 
 ```bash
 sudo -u deploy ./scripts/verify-secrets.sh /ruta/al/.env

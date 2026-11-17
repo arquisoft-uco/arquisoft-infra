@@ -14,8 +14,8 @@
 #
 # Las contraseñas viajan a los contenedores por variables de entorno
 # (`docker exec -e NOMBRE`), nunca como argumentos visibles en `ps` del host.
-# Salida: ✅ correcto · ❌ incorrecto/faltante · ⏭  no aplica (contenedor no corre)
-# Exit code: 0 si no hay ❌, 1 si hay alguno.
+# Salida: ✅ correcto · ❌ incorrecto/faltante · ⚠  aviso (no bloquea) · ⏭  no aplica
+# Exit code: 0 si no hay ❌ (los ⚠ no cuentan), 1 si hay alguno.
 # =============================================================================
 set -uo pipefail
 
@@ -30,6 +30,8 @@ FAIL=0
 ok()   { echo "  ✅ $1"; }
 bad()  { echo "  ❌ $1"; FAIL=1; }
 skip() { echo "  ⏭  $1"; }
+WARNS=0
+warn() { echo "  ⚠  $1"; WARNS=1; }
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" == "true" ]]; }
 
 # -----------------------------------------------------------------------------
@@ -120,11 +122,16 @@ check_kc() { # 'args-kcadm' etiqueta VAR...
   if docker exec "${envs[@]}" arquisoft-keycloak sh -c \
        "/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --config /tmp/kcadm-verify.config $args >/dev/null 2>&1; r=\$?; rm -f /tmp/kcadm-verify.config; exit \$r" >/dev/null 2>&1; then
     ok "$label"
-  else bad "$label: el servicio rechaza la credencial"; fi
+  else "${KC_FAIL:-bad}" "$label: el servicio rechaza la credencial${KC_HINT:-}"; fi
 }
 if running arquisoft-keycloak; then
+  # KEYCLOAK_ADMIN/PASSWORD = admin de ARRANQUE (KC_BOOTSTRAP_ADMIN_*): Keycloak solo lo
+  # crea cuando la BD está vacía. Lo normal es borrarlo tras crear administradores
+  # personales, así que un rechazo es aviso, no error. Conservar el valor: es el que
+  # Keycloak volvería a crear si la BD se reconstruye desde cero.
   export KU="${KEYCLOAK_ADMIN:-admin}" KP="${KEYCLOAK_ADMIN_PASSWORD:-}"
-  check_kc '--realm master --user "$KU" --password "$KP"' "Keycloak admin (KEYCLOAK_ADMIN/PASSWORD)" KU KP
+  KC_FAIL=warn KC_HINT=" (normal si ese usuario se eliminó tras crear administradores personales; solo se usa con la BD vacía)" \
+    check_kc '--realm master --user "$KU" --password "$KP"' "Keycloak admin de arranque (KEYCLOAK_ADMIN/PASSWORD)" KU KP
   if [[ -n "${KEYCLOAK_CLIENT_SECRET:-}" ]]; then
     export KR="${KEYCLOAK_REALM:-arquisoft}" KCID="${KEYCLOAK_CLIENT_ID:-arquisoft-api}" KS="$KEYCLOAK_CLIENT_SECRET"
     check_kc '--realm "$KR" --client "$KCID" --secret "$KS"' "Keycloak cliente del backend (KEYCLOAK_CLIENT_SECRET)" KR KCID KS
@@ -141,10 +148,11 @@ if running arquisoft-grafana; then
 else skip "Grafana (contenedor no corre)"; fi
 
 # BasicAuth de consolas (Traefik dashboard) — HTTPS contra el Traefik local
-# (--resolve evita depender del DNS/NAT público desde el propio servidor)
+# (--resolve evita depender del DNS/NAT público desde el propio servidor; -k porque
+#  se prueba la credencial por loopback, no la validez del certificado)
 if running arquisoft-traefik && [[ -n "${DOMAIN:-}" && -n "${ADMIN_AUTH_USER:-}" ]] && command -v curl >/dev/null; then
   code="$(printf 'user = "%s:%s"\n' "$ADMIN_AUTH_USER" "${ADMIN_AUTH_PASSWORD:-}" \
-          | curl -s -o /dev/null -w '%{http_code}' --max-time 10 -K - \
+          | curl -sk -o /dev/null -w '%{http_code}' --max-time 10 -K - \
               --resolve "traefik.${DOMAIN}:443:127.0.0.1" "https://traefik.${DOMAIN}/dashboard/" 2>/dev/null)"
   case "$code" in
     2*|3*) ok "BasicAuth consolas (ADMIN_AUTH_USER/PASSWORD)" ;;
@@ -155,12 +163,15 @@ else skip "BasicAuth consolas (Traefik no corre, falta DOMAIN/ADMIN_AUTH_USER o 
 
 # -----------------------------------------------------------------------------
 echo "== 3. Imágenes desplegadas vs tags del .env"
+# Los tags los publica el pipeline de cada app (repos backend/frontend), así que se
+# desfasan en cada despliegue: diferencia = aviso, no error.
 check_img() { # contenedor VAR_IMAGE VAR_TAG
   local c="$1" want got
   running "$c" || { skip "$c (no corre)"; return; }
   want="${!2:-}:${!3:-latest}"
   got="$(docker inspect -f '{{.Config.Image}}' "$c")"
-  [[ "$got" == "$want" ]] && ok "$c usa $3 del .env" || bad "$c corre '$got' pero el .env dice '$want' (actualiza $3)"
+  if [[ "$got" == "$want" ]]; then ok "$c usa $3 del .env"
+  else warn "$c corre '$got' y el .env dice '$want' (lo desplegó el pipeline de la app; actualiza $3 si vas a desplegar desde aquí)"; fi
 }
 check_img arquisoft-backend  BACKEND_IMAGE  BACKEND_TAG
 check_img arquisoft-frontend FRONTEND_IMAGE FRONTEND_TAG
@@ -168,4 +179,5 @@ check_img arquisoft-frontend FRONTEND_IMAGE FRONTEND_TAG
 echo "== No verificables aquí (servicios externos): DUCKDNS_TOKEN, MAIL_USERNAME/PASSWORD"
 echo
 (( FAIL )) && { echo "✗ Hay diferencias: corrige el .env antes de subirlo a Doppler"; exit 1; }
+(( WARNS )) && { echo "✓ Las credenciales coinciden con lo desplegado (revisa los avisos ⚠)"; exit 0; }
 echo "✓ El .env coincide con lo desplegado"
