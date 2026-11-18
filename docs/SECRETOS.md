@@ -115,9 +115,10 @@ los valores nuevos al hacer `docker compose up -d` (y en mailpit, tras `./setup.
 ## Verificador `scripts/verify-secrets.sh`
 
 Valida un `.env` contra lo **desplegado**, sin imprimir valores: (1) que estén todas las variables
-que exigen los componentes que corren, (2) que cada credencial sea aceptada por su servicio
-(Postgres, Keycloak-DB, Redis, RabbitMQ admin/app, MinIO root/backend, Keycloak admin/cliente,
-Grafana, BasicAuth de Traefik) y (3) que `BACKEND_TAG`/`FRONTEND_TAG` coincidan con la imagen que
+que exigen los componentes que corren (para mailpit/sonarqube, las claves de su `.env.example`),
+(2) que cada credencial sea aceptada por su servicio (Postgres, Keycloak-DB, Redis, RabbitMQ
+admin/app, MinIO root/backend, Keycloak admin/cliente, Grafana, BasicAuth de Traefik, SonarQube-DB,
+y en Mailpit que los archivos `smtp-auth.txt`/`ui-auth.txt` montados coincidan) y (3) que `BACKEND_TAG`/`FRONTEND_TAG` coincidan con la imagen que
 corre. Exit 0 si no hay ❌. Úsalo antes de subir valores a Doppler y después de rotar.
 
 Son **avisos ⚠** (no bloquean):

@@ -7,7 +7,8 @@
 #   1. ¿Están TODAS las variables que exigen los componentes que hoy corren?
 #   2. ¿Las credenciales son las que REALMENTE aceptan los servicios?
 #      (se autentica contra cada contenedor: Postgres, Keycloak-DB, Redis,
-#       RabbitMQ, MinIO, Keycloak, Grafana, BasicAuth de Traefik)
+#       RabbitMQ, MinIO, Keycloak, Grafana, BasicAuth de Traefik, SonarQube-DB
+#       y los archivos de credenciales que montó Mailpit)
 #
 # Uso (en el servidor, con acceso a docker):
 #   ./scripts/verify-secrets.sh [ruta/.env]        # default: <repo>/.env
@@ -36,9 +37,13 @@ running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" == "
 
 # -----------------------------------------------------------------------------
 echo "== 1. Variables requeridas por los componentes en ejecución"
-# Solo los componentes que consumen el .env RAÍZ (deploy.sh + apps). Los demás
-# (duckdns, mailpit, sonarqube, wireguard) se despliegan con su propio .env.
+# Componentes que consumen el .env RAÍZ (deploy.sh + apps): requeridas = las que
+# exige su compose. Herramientas (TOOL_ENV_COMPONENTS): leen su propio
+# components/<c>/.env, que `fetch-secrets.sh tools` genera desde el raíz con las
+# claves de su .env.example → requeridas = esas claves. El resto (wireguard) no
+# usa el .env raíz.
 ROOT_ENV_COMPONENTS=" proxy postgres redis rabbitmq minio keycloak observability alloy backend frontend "
+TOOL_ENV_COMPONENTS=" mailpit sonarqube duckdns "
 # Un componente cuenta si alguno de sus container_name está corriendo.
 # Requeridas = ${VAR:?...} y ${VAR} sin default (no ${VAR:-x} ni $${VAR}).
 missing_total=0
@@ -48,18 +53,24 @@ for compose in "$INFRA_DIR"/components/*/docker-compose.yml; do
   while read -r cname; do running "$cname" && is_up=1; done \
     < <(grep -oE 'container_name:[[:space:]]*[A-Za-z0-9_.-]+' "$compose" | awk '{print $2}')
   (( is_up )) || continue
-  if [[ "$ROOT_ENV_COMPONENTS" != *" $comp "* ]]; then
-    skip "$comp: usa su propio components/$comp/.env (fuera de Doppler por ahora)"; continue
+  if [[ "$TOOL_ENV_COMPONENTS" == *" $comp "* ]]; then
+    ex="$INFRA_DIR/components/$comp/.env.example"
+    [[ -f "$ex" ]] || { skip "$comp: sin .env.example"; continue; }
+    req="$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$ex" | tr -d '=' | sort -u)"
+    suffix=" (su .env: fetch-secrets.sh tools $comp)"
+  elif [[ "$ROOT_ENV_COMPONENTS" == *" $comp "* ]]; then
+    files=("$compose")
+    for t in "$INFRA_DIR/components/$comp"/config/*.template; do [[ -f "$t" ]] && files+=("$t"); done
+    req="$(grep -hoE '(^|[^$])\$\{[A-Z_][A-Z0-9_]*(:\?[^}]*)?\}' "${files[@]}" 2>/dev/null \
+           | grep -oE '\{[A-Z_][A-Z0-9_]*' | tr -d '{' | sort -u)"
+    suffix=""
+  else
+    skip "$comp: no usa el .env raíz (ver su README)"; continue
   fi
-
-  files=("$compose")
-  for t in "$INFRA_DIR/components/$comp"/config/*.template; do [[ -f "$t" ]] && files+=("$t"); done
-  req="$(grep -hoE '(^|[^$])\$\{[A-Z_][A-Z0-9_]*(:\?[^}]*)?\}' "${files[@]}" 2>/dev/null \
-         | grep -oE '\{[A-Z_][A-Z0-9_]*' | tr -d '{' | sort -u)"
   miss=()
   for v in $req; do [[ -n "${!v:-}" ]] || miss+=("$v"); done
   if (( ${#miss[@]} )); then bad "$comp: faltan ${miss[*]}"; missing_total=1
-  else ok "$comp: completo"; fi
+  else ok "$comp: completo$suffix"; fi
 done
 (( missing_total )) || echo "  (todas las variables requeridas están presentes)"
 
@@ -80,6 +91,7 @@ check_pg() { # contenedor usuario password base etiqueta
 check_pg arquisoft-postgres    "${POSTGRES_USER:-postgres}"     "${POSTGRES_PASSWORD:-}"    "${POSTGRES_DB:-postgres}" "PostgreSQL superusuario (POSTGRES_USER/PASSWORD)"
 check_pg arquisoft-postgres    "${APP_DB_USER:-arquisoft_user}" "${APP_DB_PASSWORD:-}"      "usuarios"                 "PostgreSQL app (APP_DB_USER/PASSWORD)"
 check_pg arquisoft-keycloak-db "${KEYCLOAK_DB_USER:-keycloak}"  "${KEYCLOAK_DB_PASSWORD:-}" "${KEYCLOAK_DB_NAME:-keycloak}" "Keycloak DB (KEYCLOAK_DB_USER/PASSWORD)"
+check_pg arquisoft-sonarqube-db "${SONAR_DB_USER:-sonarqube}"   "${SONAR_DB_PASSWORD:-}"    "${SONAR_DB_NAME:-sonarqube}"  "SonarQube DB (SONAR_DB_USER/PASSWORD)"
 
 # Redis (requirepass → usuario default)
 if running arquisoft-redis; then
@@ -161,6 +173,25 @@ if running arquisoft-traefik && [[ -n "${DOMAIN:-}" && -n "${ADMIN_AUTH_USER:-}"
   esac
 else skip "BasicAuth consolas (Traefik no corre, falta DOMAIN/ADMIN_AUTH_USER o curl)"; fi
 
+# Mailpit solo acepta credenciales desde archivos (user:password por línea) que
+# genera components/mailpit/setup.sh: se comprueba que el archivo MONTADO en el
+# contenedor contenga la línea esperada (si no: ./setup.sh y recrear mailpit).
+check_mailpit() { # archivo VAR_USER VAR_PASS etiqueta
+  local rc
+  [[ -n "${!2:-}" && -n "${!3:-}" ]] || { bad "$4: vacías en el .env"; return; }
+  L="${!2}:${!3}" docker exec -e L arquisoft-mailpit sh -c 'grep -qxF "$L" "$0"' "/etc/mailpit/$1" 2>/dev/null
+  rc=$?
+  case "$rc" in
+    0) ok "$4" ;;
+    1) bad "$4: no coincide con /etc/mailpit/$1 (correr ./setup.sh y recrear mailpit)" ;;
+    *) skip "$4: no se pudo leer /etc/mailpit/$1 (rc=$rc)" ;;
+  esac
+}
+if running arquisoft-mailpit; then
+  check_mailpit smtp-auth.txt MAIL_USERNAME   MAIL_PASSWORD       "Mailpit SMTP (MAIL_USERNAME/PASSWORD)"
+  check_mailpit ui-auth.txt   MAILPIT_UI_USER MAILPIT_UI_PASSWORD "Mailpit bandeja (MAILPIT_UI_USER/PASSWORD)"
+else skip "Mailpit (contenedor no corre)"; fi
+
 # -----------------------------------------------------------------------------
 echo "== 3. Imágenes desplegadas vs tags del .env"
 # Los tags los publica el pipeline de cada app (repos backend/frontend), así que se
@@ -176,7 +207,7 @@ check_img() { # contenedor VAR_IMAGE VAR_TAG
 check_img arquisoft-backend  BACKEND_IMAGE  BACKEND_TAG
 check_img arquisoft-frontend FRONTEND_IMAGE FRONTEND_TAG
 
-echo "== No verificables aquí (servicios externos): DUCKDNS_TOKEN, MAIL_USERNAME/PASSWORD"
+echo "== No verificables aquí (servicio externo): DUCKDNS_TOKEN"
 echo
 (( FAIL )) && { echo "✗ Hay diferencias: corrige el .env antes de subirlo a Doppler"; exit 1; }
 (( WARNS )) && { echo "✓ Las credenciales coinciden con lo desplegado (revisa los avisos ⚠)"; exit 0; }
