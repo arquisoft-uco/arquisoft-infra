@@ -3,7 +3,7 @@
 # PostgreSQL (app) — inicialización de bases de datos por bounded context
 # =============================================================================
 # Se ejecuta UNA sola vez, al crear el volumen de datos.
-# Crea el usuario de aplicación y 7 bases de datos (una por contexto del backend).
+# Crea el usuario de aplicación y 11 bases de datos (una por contexto del backend).
 # La BD de Keycloak NO está aquí: vive en su instancia dedicada (componente keycloak).
 # Fuente del modelo: arquisoft-backend/init-db.sql
 # =============================================================================
@@ -11,7 +11,8 @@ set -euo pipefail
 
 APP_USER="${APP_DB_USER:-arquisoft_user}"
 APP_PASS="${APP_DB_PASSWORD:?APP_DB_PASSWORD requerido}"
-DBS="usuarios fichas_perfil artefactos repositorio_artefactos proyectos_grado entregables evaluaciones"
+DBS="usuarios fichas_perfil artefactos repositorio_artefactos proyectos_grado entregables evaluaciones
+     notificaciones solicitudes biblioteca mapas_ruta"
 
 echo "==> Creando usuario de aplicación '${APP_USER}'"
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL

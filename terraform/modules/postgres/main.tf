@@ -48,7 +48,9 @@ resource "docker_container" "postgres" {
   # (memory_swap=2x memory, log_opts por defecto, capabilities); ignorarlos
   # mantiene `terraform apply` idempotente.
   lifecycle {
-    ignore_changes = [memory_swap, log_opts, capabilities]
+    # upload: el init script solo corre al crear el volumen; cambiarlo NO debe
+    # recrear un postgres con datos (en uno nuevo se usa la versión vigente).
+    ignore_changes = [memory_swap, log_opts, capabilities, upload]
   }
 
   name    = "arquisoft-postgres"
@@ -71,7 +73,7 @@ resource "docker_container" "postgres" {
     container_path = "/var/lib/postgresql/data"
   }
 
-  # Script de init (crea las 7 BDs + usuario app). Se ejecuta solo al crear el volumen.
+  # Script de init (crea las 11 BDs + usuario app). Se ejecuta solo al crear el volumen.
   upload {
     file       = "/docker-entrypoint-initdb.d/01-init-databases.sh"
     content    = file("${var.component_dir}/init/01-init-databases.sh")

@@ -62,10 +62,12 @@ reusable file middlewares (`secure-headers@file`, `admin-auth@file`). Every expo
 declares its own router/TLS via Docker labels. There is **no central routing file** to edit.
 
 ### Database model (source of truth: `arquisoft-backend/init-db.sql`)
-The backend uses **7 databases per bounded context** (NOT schemas), owned by `arquisoft_user`:
+The backend uses **11 databases per bounded context** (NOT schemas), owned by `arquisoft_user`:
 `usuarios`, `fichas_perfil`, `artefactos`, `repositorio_artefactos`, `proyectos_grado`,
-`entregables`, `evaluaciones`. Created by `components/postgres/init/01-init-databases.sh` on
-first volume creation. `arquisoft_user` is the **app user** and is `NOSUPERUSER NOCREATEROLE
+`entregables`, `evaluaciones`, `notificaciones`, `solicitudes`, `biblioteca`, `mapas_ruta`.
+Created by `components/postgres/init/01-init-databases.sh` on first volume creation only (Terraform
+ignores later changes to that upload, so editing it never recreates a postgres with data). When the
+backend adds a context, add its DB there and create it by hand on existing servers. `arquisoft_user` is the **app user** and is `NOSUPERUSER NOCREATEROLE
 NOCREATEDB` (least privilege); the superuser is `postgres`. The Keycloak DB is **dedicated**
 (`components/keycloak/keycloak-db`), not in the app PostgreSQL.
 
