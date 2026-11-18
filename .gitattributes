@@ -1,10 +1,16 @@
 * text=auto
+# LF siempre (también en Windows) para todo lo que se ejecuta o se sube a
+# contenedores Linux: con CRLF, Terraform sube scripts con "\r" ("set: -: invalid option").
 *.sh text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+*.tf text eol=lf
+*.tfvars.example text eol=lf
+*.template text eol=lf
+*.conf text eol=lf
+*.json text eol=lf
 *.md text=auto
 *.xml text=auto
-*.json text=auto
 *.png binary
 *.jpg binary
 *.jpeg binary
