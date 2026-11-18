@@ -20,6 +20,67 @@ Ningún script del repo llama a Doppler directamente salvo el adaptador
 [`scripts/fetch-secrets.sh`](../scripts/fetch-secrets.sh): `deploy.sh` y los compose solo consumen
 el `.env`. Cambiar de baúl = agregar un proveedor al adaptador.
 
+## Dónde vive cada secreto
+
+| Lugar | Qué va ahí | Criterio |
+|-------|-----------|----------|
+| **Doppler** | Contraseñas, claves y configuración que usan los servicios **en ejecución** | El servidor las lee con su propio token; nunca pasan por GitHub |
+| **GitHub — Secrets** | Solo lo que el **pipeline** necesita para actuar: entrar al servidor por SSH y herramientas del CI | Nunca credenciales de la aplicación ni de la infraestructura |
+| **GitHub — Variables** | Configuración **pública** de build (termina en el bundle del navegador) | Nunca un valor sensible |
+| **Solo en el servidor** | Tokens de servicio de Doppler (`doppler configure set token`) | Ni en GitHub ni en el repo |
+| **Cuenta personal** | Acceso de administradores a Doppler (correo propio + MFA) | No se comparte |
+
+> Las credenciales SSH tienen que estar en GitHub mientras el despliegue lo **empuje** GitHub
+> (Actions entra al servidor). Quitarlas exige invertir el modelo: que el servidor jale las imágenes
+> nuevas por su cuenta.
+
+### GitHub
+
+| Repo | Tipo | Nombre | Para qué |
+|------|------|--------|----------|
+| arquisoft-backend | Secret | `SSH_HOST`, `SSH_PORT`, `SSH_USER`, `SSH_PRIVATE_KEY` | CD: conexión al servidor (usuario `deploy`) |
+| | Secret | `BASE_DOMAIN` | Regla de Traefik `api.<dominio>` |
+| | Secret | `SONAR_TOKEN`, `SONAR_HOST_URL` | Análisis de SonarQube en el CI |
+| | Secret (opcional) | `GHCR_USERNAME`, `GHCR_TOKEN`, `DOCKER_NETWORK` | Solo si el paquete de GHCR es privado o la red cambia. Hoy no existen |
+| arquisoft-frontend | Secret | `SSH_HOST`, `SSH_PORT`, `SSH_USER`, `SSH_PRIVATE_KEY` | CD: conexión al servidor (usuario `deploy`) |
+| | Secret | `BASE_DOMAIN` | Regla de Traefik `<dominio>` |
+| | Variable | `VITE_ENV_FILE` | `VITE_*` de build en formato `.env`: URL de API, Keycloak y PDP, realm, client id |
+| arquisoft-infra | — | ninguno | La infra se despliega a mano en el servidor |
+
+`GITHUB_TOKEN` lo crea GitHub en cada ejecución; no se configura.
+
+### Doppler `arquisoft-infra/test`
+🔒 = secreto. El resto es configuración que vive junto a sus credenciales.
+
+| Grupo | Variables |
+|-------|-----------|
+| General | `DOMAIN`, `ACME_EMAIL`, `TIMEZONE` |
+| PostgreSQL | `POSTGRES_USER`, `POSTGRES_PASSWORD` 🔒, `POSTGRES_DB`, `POSTGRES_HOST`, `APP_DB_USER`, `APP_DB_PASSWORD` 🔒 |
+| Keycloak | `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD` 🔒, `KC_REALM_ADMIN_PASSWORD` 🔒, `KEYCLOAK_DB_NAME`, `KEYCLOAK_DB_USER`, `KEYCLOAK_DB_PASSWORD` 🔒, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET` 🔒, `KEYCLOAK_HOST` |
+| RabbitMQ | `RABBITMQ_USER`, `RABBITMQ_PASSWORD` 🔒, `RABBITMQ_APP_USER`, `RABBITMQ_APP_PASSWORD` 🔒, `RABBITMQ_VHOST`, `RABBITMQ_HOST`, `RABBITMQ_PORT` |
+| Redis | `REDIS_USER`, `REDIS_PASSWORD` 🔒, `REDIS_APP_USER`, `REDIS_APP_PASSWORD` 🔒, `REDIS_HOST`, `REDIS_PORT` |
+| MinIO | `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` 🔒, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` 🔒, `MINIO_ENDPOINT` |
+| Observabilidad | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` 🔒, `LOKI_URL`, `PROMETHEUS_URL`, `OBS_BIND_IP` |
+| Traefik (BasicAuth) | `ADMIN_AUTH_USER`, `ADMIN_AUTH_PASSWORD` 🔒 |
+| WireGuard | `WIREGUARD_HOST`, `WIREGUARD_PORT`, `WIREGUARD_SUBNET`, `PEERS` |
+| Apps (solo `redeploy-app.sh`, sin uso hoy) | `BACKEND_IMAGE`, `BACKEND_TAG`, `BACKEND_TARGET`, `FRONTEND_IMAGE`, `FRONTEND_TAG`, `FRONTEND_PORT`, `JAVA_TOOL_OPTIONS`, `SPRING_PROFILES_ACTIVE` |
+
+### Doppler `arquisoft-backend/test`
+~90 variables de runtime del backend. Los secretos son:
+
+| Variables 🔒 | Origen |
+|--------------|--------|
+| `DB_*_PASSWORD` (una por cada una de las 11 bases) | Copia de `APP_DB_PASSWORD` de infra |
+| `REDIS_PASSWORD`, `RABBITMQ_PASSWORD`, `MINIO_SECRET_KEY`, `KEYCLOAK_CLIENT_SECRET` | Copias de las credenciales de app de infra (ver [Rotar una credencial](#rotar-una-credencial)) |
+| `MAIL_PASSWORD`, `PEP_REGISTRATION_TOKEN` | Solo existen en el backend |
+
+El resto es configuración: `DB_*_URL`/`DB_*_USERNAME`, `LOG_*`, `PEP_*`, `MAIL_*`, `RATE_*`,
+`KEYCLOAK_*`, `MINIO_*` (buckets y endpoint), `CORS_*`, `SPRING_PROFILES_ACTIVE`, `JAVA_TOOL_OPTIONS`.
+
+### Fuera de Doppler (por ahora)
+`components/duckdns/.env`, `components/mailpit/.env`, `components/sonarqube/.env` y
+`components/wireguard/.env` en el servidor.
+
 ## Adaptador `scripts/fetch-secrets.sh`
 
 ```bash
@@ -57,9 +118,6 @@ Son **avisos ⚠** (no bloquean):
 cd ~/arquisoft-infra
 ./scripts/verify-secrets.sh .env
 ```
-
-`duckdns`, `mailpit`, `sonarqube` y `wireguard` usan su propio `components/<c>/.env` y quedan
-fuera de Doppler por ahora.
 
 ### Si el `.env` no coincide: `scripts/recover-env.sh`
 Reconstruye el `.env` a partir del entorno con el que Docker creó cada contenedor (y del
