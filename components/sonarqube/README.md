@@ -55,11 +55,11 @@ los resultados.
 
 ```bash
 cd ~/arquisoft-infra && git pull
+./scripts/fetch-secrets.sh fetch              # .env raíz desde Doppler
+./scripts/fetch-secrets.sh tools sonarqube    # components/sonarqube/.env
 cd components/sonarqube
-cp .env.example .env
-# Rellenar SONAR_DB_PASSWORD, p. ej.:
-sed -i "s|^SONAR_DB_PASSWORD=.*|SONAR_DB_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | cut -c1-32)|" .env
-chmod 600 .env
+# Servidor nuevo: definir antes SONAR_DB_USER/NAME/PASSWORD en Doppler arquisoft-infra/test
+# (contraseña: openssl rand -base64 32 | tr -d '/+=' | cut -c1-32). Sin baúl: cp .env.example .env
 
 docker compose config --quiet   # validar
 docker compose up -d

@@ -6,7 +6,7 @@
 #
 # IMPORTANTE — servicio auxiliar, NO forma parte del despliegue final:
 #   * No está en ALL_COMPONENTS de deploy.sh.
-#   * No usa el .env de la raíz: lee su propio .env de esta carpeta.
+#   * Lee su propio .env de esta carpeta (generado desde Doppler, ver docs/SECRETOS.md).
 #   * Se levanta y se gestiona por su cuenta (ver README.md).
 # Está pensado para sustituirse más adelante por un proveedor de correo real.
 #
@@ -15,7 +15,7 @@
 # accesible desde dentro de la red Docker.
 #
 #   cd components/mailpit
-#   cp .env.example .env      # y rellenar las credenciales
+#   ../../scripts/fetch-secrets.sh tools mailpit     # .env desde Doppler (sin baúl: cp .env.example .env)
 #   ./setup.sh                # genera config/*-auth.txt desde el .env
 #   docker compose up -d
 # =============================================================================

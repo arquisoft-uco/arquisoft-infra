@@ -7,14 +7,14 @@
 #
 # IMPORTANTE — herramienta de desarrollo, NO forma parte de la plataforma:
 #   * No está en ALL_COMPONENTS de deploy.sh.
-#   * No usa el .env de la raíz: lee su propio .env de esta carpeta.
+#   * Lee su propio .env de esta carpeta (generado desde Doppler, ver docs/SECRETOS.md).
 #   * Ningún servicio de la aplicación depende de él. Si se cae, la plataforma
 #     sigue funcionando; solo fallan los análisis del CI.
 #
 # Requisito del host (Elasticsearch embebido): vm.max_map_count >= 524288.
 #
 #   cd components/sonarqube
-#   cp .env.example .env      # y rellenar los CHANGE_ME
+#   ../../scripts/fetch-secrets.sh tools sonarqube   # .env desde Doppler (sin baúl: cp .env.example .env)
 #   docker compose up -d
 # =============================================================================
 

@@ -63,6 +63,8 @@ el `.env`. Cambiar de baúl = agregar un proveedor al adaptador.
 | Observabilidad | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` 🔒, `LOKI_URL`, `PROMETHEUS_URL`, `OBS_BIND_IP` |
 | Traefik (BasicAuth) | `ADMIN_AUTH_USER`, `ADMIN_AUTH_PASSWORD` 🔒 |
 | WireGuard | `WIREGUARD_HOST`, `WIREGUARD_PORT`, `WIREGUARD_SUBNET`, `PEERS` |
+| Mailpit (herramienta) | `MAIL_USERNAME`, `MAIL_PASSWORD` 🔒 (copia del backend), `MAILPIT_UI_USER`, `MAILPIT_UI_PASSWORD` 🔒, `MAILPIT_MAX_MESSAGES`, `MAILPIT_MAX_AGE` |
+| SonarQube (herramienta) | `SONAR_DB_USER`, `SONAR_DB_PASSWORD` 🔒, `SONAR_DB_NAME` |
 | Apps (solo `redeploy-app.sh`, sin uso hoy) | `BACKEND_IMAGE`, `BACKEND_TAG`, `BACKEND_TARGET`, `FRONTEND_IMAGE`, `FRONTEND_TAG`, `FRONTEND_PORT`, `JAVA_TOOL_OPTIONS`, `SPRING_PROFILES_ACTIVE` |
 
 ### Doppler `arquisoft-backend/test`
@@ -77,9 +79,12 @@ el `.env`. Cambiar de baúl = agregar un proveedor al adaptador.
 El resto es configuración: `DB_*_URL`/`DB_*_USERNAME`, `LOG_*`, `PEP_*`, `MAIL_*`, `RATE_*`,
 `KEYCLOAK_*`, `MINIO_*` (buckets y endpoint), `CORS_*`, `SPRING_PROFILES_ACTIVE`, `JAVA_TOOL_OPTIONS`.
 
-### Fuera de Doppler (por ahora)
-`components/duckdns/.env`, `components/mailpit/.env`, `components/sonarqube/.env` y
-`components/wireguard/.env` en el servidor.
+### Herramientas (fuera de Terraform)
+Mailpit y SonarQube se levantan con `docker compose` desde su carpeta y leen
+`components/<c>/.env`. Ese archivo **no se edita a mano**: lo genera el adaptador a partir del
+`.env` raíz (o sea, de Doppler), con solo las claves que declara su `.env.example`.
+`duckdns` no está desplegado (sus variables no están en Doppler y el adaptador lo omite);
+`wireguard` lo gestiona Terraform con las variables de la tabla anterior.
 
 ## Adaptador `scripts/fetch-secrets.sh`
 
@@ -87,7 +92,14 @@ El resto es configuración: `DB_*_URL`/`DB_*_USERNAME`, `LOG_*`, `PEP_*`, `MAIL_
 scripts/fetch-secrets.sh fetch              # genera/valida el .env raíz
 scripts/fetch-secrets.sh set BACKEND_TAG=x  # persiste un valor NO secreto
 scripts/fetch-secrets.sh provider           # proveedor resuelto (doppler | file)
+scripts/fetch-secrets.sh tools --check      # compara components/<c>/.env con el .env raíz (solo nombres)
+scripts/fetch-secrets.sh tools [c...]       # escribe el .env de mailpit / sonarqube / duckdns
 ```
+
+`tools` nunca escribe a medias: omite un componente si falta una clave en el baúl o si su `.env`
+actual tiene claves que el `.env.example` no declara. Si el archivo ya era idéntico no lo toca; si
+cambia, deja una copia `.env.bak-<fecha>`. Cambiar el `.env` no reinicia nada: el contenedor toma
+los valores nuevos al hacer `docker compose up -d` (y en mailpit, tras `./setup.sh`).
 
 | `SECRETS_PROVIDER` | Comportamiento |
 |--------------------|----------------|
@@ -159,6 +171,7 @@ cd ~/arquisoft-infra
 git pull
 ./scripts/fetch-secrets.sh fetch          # .env desde arquisoft-infra/test
 ./scripts/verify-secrets.sh .env
+./scripts/fetch-secrets.sh tools --check  # .env de mailpit y sonarqube al día con el baúl
 ```
 
 ### Backend (usuario `deploy`)
@@ -233,6 +246,7 @@ que actualizar ambos y luego volver a desplegar el servicio y el backend.
 | `RABBITMQ_APP_USER` / `RABBITMQ_APP_PASSWORD` | `RABBITMQ_USERNAME` / `RABBITMQ_PASSWORD` |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` |
 | `KEYCLOAK_CLIENT_ID` / `KEYCLOAK_CLIENT_SECRET` | `KEYCLOAK_CLIENT_ID` / `KEYCLOAK_CLIENT_SECRET` |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` (Mailpit) | `MAIL_USERNAME` / `MAIL_PASSWORD` |
 
 ## Rotar un token
 ```bash
