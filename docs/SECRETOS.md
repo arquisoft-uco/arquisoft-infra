@@ -1,19 +1,24 @@
 # Gestión de secretos (Doppler)
 
-Los secretos del `.env` raíz viven en **Doppler**, workplace `arquisoft`, proyecto `arquisoft-infra`:
+Los secretos viven en **Doppler**, workplace `arquisoft` (plan gratuito), en dos proyectos:
 
-| Entorno / config | Uso |
-|------------------|-----|
-| `test` | Servidor Oracle (lo consume `deploy.yml` y `redeploy-app.sh`) |
-| `dev` | Reservado para desarrollo local (sin uso por ahora) |
+| Proyecto / config | Contenido | Lo consume |
+|-------------------|-----------|------------|
+| `arquisoft-infra/test` | `.env` raíz de la plataforma (postgres, redis, rabbitmq, minio, keycloak, traefik, observabilidad) | `~/arquisoft-infra/.env` del usuario `ubuntu` en el servidor Oracle, vía `scripts/fetch-secrets.sh` |
+| `arquisoft-backend/test` | `.env` de runtime del backend | `deploy.yml` del repo **arquisoft-backend**: el servidor lo descarga en `/home/deploy/arquisoft/.env` en cada despliegue |
+
+El config `dev` de `arquisoft-infra` queda reservado para desarrollo local (sin uso). El backend en
+local sigue usando su propio `.env`, fuera de Doppler.
+
+> **Por qué dos proyectos.** El backend tiene ~90 variables propias (logs, PEP, sesión,
+> notificaciones, buckets…) y nombra distinto las credenciales compartidas (`DB_USUARIOS_PASSWORD`
+> en vez de `APP_DB_PASSWORD`); además `REDIS_PASSWORD` significa cosas distintas en cada lado.
+> Las referencias entre proyectos (`${proyecto.config.CLAVE}`) son de pago, así que las
+> credenciales compartidas están **copiadas** (ver [Rotar una credencial](#rotar-una-credencial)).
 
 Ningún script del repo llama a Doppler directamente salvo el adaptador
-[`scripts/fetch-secrets.sh`](../scripts/fetch-secrets.sh): `deploy.sh`, `redeploy-app.sh` y los
-compose solo consumen el `.env`. Cambiar de baúl = agregar un proveedor al adaptador.
-
-> **Nombres distintos, mismo destino.** El config de Doppler (`test`) no tiene que coincidir con el
-> GitHub Environment (`prod`) ni con el modo de `deploy.sh` (`prod` = servidor con HTTPS): los une el
-> token. `DOPPLER_TOKEN` del environment `prod` es un token del config `test`.
+[`scripts/fetch-secrets.sh`](../scripts/fetch-secrets.sh): `deploy.sh` y los compose solo consumen
+el `.env`. Cambiar de baúl = agregar un proveedor al adaptador.
 
 ## Adaptador `scripts/fetch-secrets.sh`
 
@@ -32,6 +37,7 @@ scripts/fetch-secrets.sh provider           # proveedor resuelto (doppler | file
 > Usar siempre `--format env` (valores entre comillas). `--format docker` rompe el `source` de
 > `deploy.sh` con valores que tienen espacios (`JAVA_TOOL_OPTIONS`). Evitar `$` en los valores.
 > `doppler secrets download <archivo>` (sin `--no-file`) escribe el archivo **cifrado**: redirigir stdout.
+> (El backend sí usa `--format docker`, porque lo lee `docker run --env-file`, no `source`.)
 
 ## Verificador `scripts/verify-secrets.sh`
 
@@ -48,7 +54,8 @@ Son **avisos ⚠** (no bloquean):
 - **Tags de backend/frontend**: los publica el pipeline de cada app y se desfasan en cada despliegue.
 
 ```bash
-sudo -u deploy ./scripts/verify-secrets.sh /ruta/al/.env
+cd ~/arquisoft-infra
+./scripts/verify-secrets.sh .env
 ```
 
 `duckdns`, `mailpit`, `sonarqube` y `wireguard` usan su propio `components/<c>/.env` y quedan
@@ -68,85 +75,118 @@ datos (`KEYCLOAK_ADMIN_PASSWORD`, `GRAFANA_ADMIN_PASSWORD`, si se cambiaron desd
 
 ## Quién accede y cómo
 
-| Quién | Acceso |
-|-------|--------|
-| Administradores (2–3) | Cuenta personal en Doppler (correo propio + MFA). Nunca `doppler login` en el servidor. |
-| GitHub Actions (`deploy.yml`) | Secret `DOPPLER_TOKEN` del GitHub Environment `prod`: service token **solo lectura** del config `test` |
-| Servidor (`redeploy-app.sh`) | Service token del config `test` **lectura/escritura** (escribe `BACKEND_TAG`/`FRONTEND_TAG`), usuario `deploy`, scope `/opt/arquisoft-infra` |
-| Compañeros (futuro, local) | Service token **por persona** del config `dev`, revocable individualmente |
+| Quién | Token | Acceso | Dónde |
+|-------|-------|--------|-------|
+| Administradores (2–3) | Cuenta personal (correo propio + MFA) | Total | Solo en su equipo. Nunca `doppler login` en el servidor. |
+| Servidor — infra | `servidor-oracle` de `arquisoft-infra/test` | Lectura/escritura | Usuario `ubuntu`, scope `~/arquisoft-infra` |
+| Servidor — backend | `servidor-oracle` de `arquisoft-backend/test` | **Solo lectura** | Usuario `deploy`, scope `/home/deploy/arquisoft` |
+| Compañeros (futuro, local) | Uno **por persona** del config `dev` | Lectura | Revocable individualmente |
 
-## Puesta en marcha
+**Ningún token de Doppler vive en GitHub.** El pipeline del backend entra por SSH como `deploy` y el
+CLI del servidor usa el token de ese usuario. El `.github/workflows/deploy.yml` de este repo
+(self-hosted runner + `DOPPLER_TOKEN` en un GitHub Environment) está **inactivo**: no hay runner ni
+environments configurados. La infra se despliega a mano en el servidor.
 
-### 1. Doppler (en tu equipo, una vez)
 ```bash
-doppler projects create arquisoft-infra
-doppler environments create "Test" test --project arquisoft-infra
-doppler environments delete stg --project arquisoft-infra --yes
-doppler environments delete prd --project arquisoft-infra --yes
+# Ver los tokens existentes (solo nombres y fechas) desde tu equipo
+doppler configs tokens --project arquisoft-infra --config test
+doppler configs tokens --project arquisoft-backend --config test
 ```
 
-### 2. Tokens (en tu equipo; no se muestran en pantalla)
-```bash
-# GitHub Actions — solo lectura, directo al secret del environment prod
-doppler configs tokens create github-actions --project arquisoft-infra --config test --plain \
-  | gh secret set DOPPLER_TOKEN --env prod --repo arquisoft-uco/arquisoft-infra
+## Operación en el servidor
 
-# Servidor — lectura/escritura, al portapapeles para pegarlo en el servidor
-doppler configs tokens create server-redeploy --project arquisoft-infra --config test --access read/write --plain | clip
+### Infra (usuario `ubuntu`)
+```bash
+cd ~/arquisoft-infra
+git pull
+./scripts/fetch-secrets.sh fetch          # .env desde arquisoft-infra/test
+./scripts/verify-secrets.sh .env
 ```
 
-### 3. Servidor: CLI y token del usuario `deploy`
+### Backend (usuario `deploy`)
+No se opera a mano: cada despliegue del repo backend reescribe `/home/deploy/arquisoft/.env` desde
+Doppler. Para cambiar una variable, editarla en `arquisoft-backend/test` y volver a desplegar
+(merge a `develop` o *Run workflow*). Una edición manual del archivo se pierde en el siguiente deploy.
+
+```bash
+# Comprobar el token del backend sin mostrar secretos
+sudo -u deploy -H sh -c 'cd ~/arquisoft && doppler secrets get DOPPLER_PROJECT DOPPLER_CONFIG --plain'
+```
+
+## Preparar un servidor nuevo
+
+### 1. CLI de Doppler
 ```bash
 (curl -Ls --tlsv1.2 --proto "=https" --retry 3 https://cli.doppler.com/install.sh || \
  wget -t 3 -qO- https://cli.doppler.com/install.sh) | sudo sh       # detecta amd64/arm64
-read -rs -p "Token server-redeploy: " T; echo
-sudo -u deploy doppler configure set token "$T" --scope /opt/arquisoft-infra
-unset T
 ```
 
-### 4. Servidor: migrar el `.env` desplegado a Doppler
-El `.env` completo ya existe en el servidor (el workflow anterior lo escribía desde `ENV_FILE` en
-el workspace del runner y no lo borraba; `redeploy-app.sh` usa `/opt/arquisoft-infra/.env`).
+### 2. Tokens
+Crear el token en tu equipo (va al portapapeles, no se muestra):
 ```bash
-cd /opt/arquisoft-infra
-git fetch && git checkout feature/doppler            # o main, tras el merge
-
-# a) Ubicar el .env vigente (comparar si hay más de uno)
-ls -l .env
-sudo find / -path '*/_work/*' -name .env -path '*arquisoft-infra*' 2>/dev/null
-sudo sha256sum .env <ruta-del-runner>/.env
-
-# b) Validarlo contra lo desplegado — no seguir hasta que no haya ❌
-sudo install -m 600 -o deploy <ruta-del-.env-vigente> /tmp/migr.env
-sudo -u deploy ./scripts/verify-secrets.sh /tmp/migr.env
-
-# c) Subir solo las variables activas al config test
-sudo -u deploy sh -c 'grep -E "^[A-Z_][A-Z0-9_]*=" /tmp/migr.env > /tmp/migr.clean && doppler secrets upload /tmp/migr.clean --silent'
-sudo shred -u /tmp/migr.env /tmp/migr.clean
-
-# d) Ida y vuelta: lo que devuelve Doppler también debe pasar la verificación
-cp .env .env.pre-doppler 2>/dev/null || true
-sudo -u deploy ./scripts/fetch-secrets.sh fetch
-sudo -u deploy ./scripts/verify-secrets.sh .env
+doppler configs tokens create servidor-oracle --project arquisoft-infra --config test --access read/write --plain | clip
+doppler configs tokens create servidor-oracle --project arquisoft-backend --config test --plain | clip   # solo lectura
 ```
 
-### 5. Validación del workflow y corte
-1. **Actions → Deploy → Run workflow**, "Use workflow from" = `feature/doppler`, environment `prod`,
-   un componente inocuo (p. ej. `redis`).
-2. Redeploy del backend desde su repo; confirmar `BACKEND_TAG` en Doppler
-   (`doppler secrets get BACKEND_TAG --project arquisoft-infra --config test --plain`).
-3. Merge del PR; en el servidor `git checkout main && git pull`.
-4. Eliminar el secret de repositorio `ENV_FILE`; tras unos días estable, borrar `.env.pre-doppler`.
+Configurarlo en el servidor. El token entra por **stdin**, nunca como argumento: `sudo` registra
+la línea de comando completa en `/var/log/auth.log`.
+```bash
+# Infra, como ubuntu
+read -rs -p "Token infra: " T; echo
+printf '%s' "$T" | doppler configure set token --scope ~/arquisoft-infra; unset T
+
+# Backend, para el usuario deploy
+read -rs -p "Token backend: " T; echo
+printf '%s' "$T" | sudo -u deploy -H doppler configure set token --scope /home/deploy/arquisoft; unset T
+```
+
+Un service token no guarda proyecto ni config en la configuración local; se comprueban con
+`doppler secrets get DOPPLER_PROJECT DOPPLER_CONFIG --plain` dentro del directorio del scope.
+
+## Subir un `.env` existente a Doppler
+Siempre desde el servidor, con un token **temporal** de escritura y comparando ida y vuelta:
+```bash
+# En tu equipo: token de 1 hora
+doppler configs tokens create migracion --project <proyecto> --config test --access read/write --max-age 1h --plain | clip
+
+# En el servidor
+umask 077
+grep -E '^[A-Z_][A-Z0-9_]*=' <ruta/.env> > /tmp/m.env
+read -rs -p "Token temporal: " DOPPLER_TOKEN; echo
+export DOPPLER_TOKEN
+doppler secrets upload /tmp/m.env --silent
+doppler secrets download --no-file --format docker --no-fallback --silent \
+  | grep -vE '^DOPPLER_(PROJECT|CONFIG|ENVIRONMENT)=' | sort > /tmp/m.doppler
+unset DOPPLER_TOKEN
+tac /tmp/m.env | awk -F= '!s[$1]++' | sort > /tmp/m.orig
+diff /tmp/m.orig /tmp/m.doppler | sed -n 's/^[<>] \([A-Z_0-9]*\)=.*/\1/p' | sort -u   # vacío = idéntico
+shred -u /tmp/m.env /tmp/m.orig /tmp/m.doppler
+```
+Antes de subir el `.env` de infra, pasarlo por `verify-secrets.sh` sin ❌.
+
+## Rotar una credencial
+Las credenciales compartidas están en **los dos proyectos** con nombres distintos; al rotar una hay
+que actualizar ambos y luego volver a desplegar el servicio y el backend.
+
+| `arquisoft-infra` | `arquisoft-backend` |
+|-------------------|---------------------|
+| `APP_DB_USER` / `APP_DB_PASSWORD` | `DB_*_USERNAME` / `DB_*_PASSWORD` (una por base de datos) |
+| `REDIS_APP_USER` / `REDIS_APP_PASSWORD` | `REDIS_USER` / `REDIS_PASSWORD` |
+| `RABBITMQ_APP_USER` / `RABBITMQ_APP_PASSWORD` | `RABBITMQ_USERNAME` / `RABBITMQ_PASSWORD` |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` |
+| `KEYCLOAK_CLIENT_ID` / `KEYCLOAK_CLIENT_SECRET` | `KEYCLOAK_CLIENT_ID` / `KEYCLOAK_CLIENT_SECRET` |
+
+## Rotar un token
+```bash
+doppler configs tokens --project <proyecto> --config test                      # ver slugs
+doppler configs tokens revoke --slug <slug> --project <proyecto> --config test
+# crear uno nuevo y configurarlo en el servidor (ver "Preparar un servidor nuevo")
+```
+Varios tokens pueden llamarse igual: revocar siempre por `--slug`, no por nombre.
 
 ## Desarrollo local (opcional)
 ```bash
 doppler setup --project arquisoft-infra --config dev   # en Git Bash, no PowerShell (BOM)
 ./scripts/fetch-secrets.sh fetch
 ./deploy.sh dev
-```
-
-## Rotar un token
-```bash
-doppler configs tokens revoke <nombre> --project arquisoft-infra --config <test|dev>
-# crear uno nuevo y actualizar el secret de GitHub / `doppler configure set token` del servidor
 ```
