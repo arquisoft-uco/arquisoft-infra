@@ -69,8 +69,18 @@ resource "null_resource" "postgres_app_least_privilege" {
     app_user = var.app_db_user
   }
 
+  # Con un volumen nuevo, el entrypoint de postgres corre initdb con un servidor
+  # TEMPORAL que solo escucha por socket y luego reinicia. Esperar al servidor
+  # definitivo por TCP (127.0.0.1) evita la carrera con el ALTER ROLE.
   provisioner "local-exec" {
-    command = "docker exec arquisoft-postgres psql -U ${var.postgres_user} -v ON_ERROR_STOP=1 -c \"ALTER ROLE ${var.app_db_user} NOSUPERUSER NOCREATEROLE NOCREATEDB;\""
+    command = <<-EOT
+      i=0
+      until docker exec arquisoft-postgres pg_isready -q -h 127.0.0.1 -U ${var.postgres_user}; do
+        i=$((i + 1)); [ "$i" -ge 60 ] && { echo "postgres no respondió en 120 s"; exit 1; }
+        sleep 2
+      done
+      docker exec arquisoft-postgres psql -U ${var.postgres_user} -v ON_ERROR_STOP=1 -c "ALTER ROLE ${var.app_db_user} NOSUPERUSER NOCREATEROLE NOCREATEDB;"
+    EOT
   }
 }
 
