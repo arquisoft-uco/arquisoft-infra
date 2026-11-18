@@ -19,9 +19,10 @@ pruebas para verificar que los correos se emiten y se ven bien.
 ## Uso
 
 ```bash
+./scripts/fetch-secrets.sh fetch            # .env raíz desde Doppler
+./scripts/fetch-secrets.sh tools mailpit    # components/mailpit/.env (sin baúl: cp .env.example .env)
 cd components/mailpit
-cp .env.example .env       # y rellenar MAIL_PASSWORD (y DOMAIN si aplica)
-./setup.sh                 # genera config/smtp-auth.txt desde el .env
+./setup.sh                 # genera config/*-auth.txt desde el .env
 docker compose up -d       # levantar
 docker compose ps          # estado
 docker compose logs -f     # ver el correo entrante
@@ -76,12 +77,14 @@ Mailpit **rechaza** `AUTH PLAIN`/`LOGIN` sobre una conexión sin cifrar, que es
 justo el caso del backend (`MAIL_SMTP_STARTTLS=false`). Es aceptable porque el
 tráfico SMTP no sale de la red interna de Docker.
 
-Si cambias las credenciales: edita `.env`, vuelve a correr `./setup.sh`, aplica
-`docker compose up -d --force-recreate` y actualiza los secretos del backend.
+Si cambias las credenciales: cámbialas en Doppler `arquisoft-infra/test` **y**
+`MAIL_USERNAME`/`MAIL_PASSWORD` en `arquisoft-backend/test`, regenera el `.env`
+(`fetch` + `tools mailpit`), vuelve a correr `./setup.sh`, aplica
+`docker compose up -d --force-recreate` y redespliega el backend.
 
 ## Variables que espera el backend
 
-En los secretos de GitHub de `arquisoft-backend`:
+En Doppler `arquisoft-backend/test`:
 
 ```env
 MAIL_HOST=mailpit

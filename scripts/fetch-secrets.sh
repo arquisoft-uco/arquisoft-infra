@@ -10,6 +10,8 @@
 #   scripts/fetch-secrets.sh [fetch]         # genera/valida el .env raíz
 #   scripts/fetch-secrets.sh set KEY=VALUE   # persiste un valor NO secreto (p. ej. BACKEND_TAG)
 #   scripts/fetch-secrets.sh provider        # imprime el proveedor resuelto
+#   scripts/fetch-secrets.sh tools --check   # compara components/<c>/.env con el baúl
+#   scripts/fetch-secrets.sh tools [c...]    # escribe el .env de mailpit/sonarqube/duckdns
 #
 # Variables:
 #   SECRETS_PROVIDER  auto (default) | doppler | file
@@ -115,6 +117,104 @@ file_set() {
   log_success "$1 actualizado en .env"
 }
 
+# ---------- .env de herramientas (fuera de Terraform) ----------
+# mailpit, sonarqube y duckdns se levantan con `docker compose` desde su carpeta y
+# leen components/<c>/.env. Sus valores viven en el mismo config del baúl (y por
+# tanto en el .env raíz); aquí se copian SOLO las claves que declara su .env.example.
+# No depende del proveedor: sale del .env raíz ya generado por `fetch`.
+TOOLS_DEFAULT="mailpit sonarqube duckdns"
+
+has_key() { grep -qE "^$2=" "$1"; }
+
+# Valor de la clave $2 en el archivo $1 (última aparición), sin las comillas que
+# agrega `doppler --format env` ni las simples de un .env escrito a mano.
+key_value() {
+  awk -v k="$2" '
+    index($0, k "=") == 1 { v = substr($0, length(k) + 2) }
+    END {
+      if (v ~ /^".*"$/)      { v = substr(v, 2, length(v) - 2); gsub(/\\"/, "\"", v) }
+      else if (v ~ /^\047.*\047$/) { v = substr(v, 2, length(v) - 2) }
+      printf "%s", v
+    }' "$1"
+}
+
+# Escribe el valor tal cual si es seguro; si no, entre comillas simples (docker
+# compose no interpola dentro de ellas, así un `$` no se pierde).
+format_value() {
+  if [[ "$1" =~ ^[A-Za-z0-9_./:@,+=%-]*$ ]]; then printf '%s' "$1"
+  elif [[ "$1" != *"'"* ]]; then printf "'%s'" "$1"
+  else return 1; fi
+}
+
+# tools_env check|write [componentes...]
+#   check → compara sin escribir: idéntico / distinto / sin .env (solo nombres)
+#   write → escribe components/<c>/.env (600). Si ya era idéntico no lo toca; si
+#           cambia, guarda una copia .env.bak-<fecha>. Nunca escribe a medias:
+#           omite el componente si falta una clave en el baúl o si el .env actual
+#           tiene claves que el .env.example no declara (se perderían).
+tools_env() {
+  local mode="$1"; shift
+  local comps=("$@")
+  [[ ${#comps[@]} -gt 0 ]] || read -r -a comps <<< "$TOOLS_DEFAULT"
+  require_env_file
+  local rc=0 c ex out keys k v fv tmp missing extra diff
+  for c in "${comps[@]}"; do
+    ex="$INFRA_DIR/components/$c/.env.example"; out="$INFRA_DIR/components/$c/.env"
+    [[ -f "$ex" ]] || { log_error "$c: no existe components/$c/.env.example"; rc=1; continue; }
+    keys="$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$ex" | tr -d '=')"
+
+    missing=""
+    for k in $keys; do has_key "$ENV_FILE" "$k" || missing+=" $k"; done
+    if [[ -n "$missing" ]]; then log_warning "$c: omitido, faltan en el baúl:$missing"; continue; fi
+
+    tmp="$(mktemp)"
+    for k in $keys; do
+      v="$(key_value "$ENV_FILE" "$k")"
+      fv="$(format_value "$v")" \
+        || { log_error "$c: $k tiene comillas simples y caracteres especiales; no se puede escribir"; rm -f "$tmp"; rc=1; continue 2; }
+      printf '%s=%s\n' "$k" "$fv" >> "$tmp"
+    done
+
+    diff=""; extra=""
+    if [[ -f "$out" ]]; then
+      for k in $keys; do
+        if ! has_key "$out" "$k" || [[ "$(key_value "$out" "$k")" != "$(key_value "$tmp" "$k")" ]]; then diff+=" $k"; fi
+      done
+      for k in $(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$out" | tr -d '=' | sort -u); do
+        grep -qxF "$k" <<< "$keys" || extra+=" $k"
+      done
+    fi
+
+    if [[ "$mode" == check ]]; then
+      if [[ ! -f "$out" ]]; then log_info "$c: sin .env (se crearía)"
+      elif [[ -z "$diff$extra" ]]; then log_success "$c: idéntico al baúl"
+      else
+        [[ -n "$diff" ]] && log_warning "$c: distinto en:$diff"
+        [[ -n "$extra" ]] && log_warning "$c: el .env actual tiene claves que el .env.example no declara:$extra"
+      fi
+      rm -f "$tmp"; continue
+    fi
+
+    if [[ -n "$extra" ]]; then
+      log_error "$c: no se escribe; el .env actual tiene claves fuera del .env.example:$extra"
+      rm -f "$tmp"; rc=1; continue
+    fi
+    if [[ -f "$out" && -z "$diff" ]]; then
+      log_success "$c: sin cambios"; rm -f "$tmp"; continue
+    fi
+    if [[ -f "$out" ]]; then
+      cp -p "$out" "$out.bak-$(date +%Y%m%d-%H%M%S)"
+      cat "$tmp" > "$out"          # conserva permisos y dueño
+      log_success "$c: .env actualizado (cambió:$diff; copia previa .env.bak-*)"
+    else
+      install -m 600 "$tmp" "$out"
+      log_success "$c: .env creado"
+    fi
+    rm -f "$tmp"
+  done
+  return "$rc"
+}
+
 # ---------- Main ----------
 PROVIDER="$(resolve_provider)"
 
@@ -132,7 +232,11 @@ case "$CMD" in
   provider)
     echo "$PROVIDER"
     ;;
+  tools)
+    shift
+    if [[ "${1:-}" == "--check" ]]; then shift; tools_env check "$@"; else tools_env write "$@"; fi
+    ;;
   *)
-    echo "Uso: $0 [fetch | set KEY=VALUE | provider]"; exit 1
+    echo "Uso: $0 [fetch | set KEY=VALUE | provider | tools [--check] [componentes...]]"; exit 1
     ;;
 esac
